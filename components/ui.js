@@ -295,3 +295,24 @@ export function useCopy() {
   }
   return [copied, copy];
 }
+
+// Remembered per-page layout choice (table / cards / grid / list), kept in this browser.
+export function useViewPref(key, fallback) {
+  const [v, setV] = useState(fallback);
+  useEffect(() => { try { const s = localStorage.getItem(`epi.view.${key}`); if (s) setV(s); } catch {} }, [key]);
+  const set = (x) => { setV(x); try { localStorage.setItem(`epi.view.${key}`, x); } catch {} };
+  return [v, set];
+}
+
+const VIEW_META = { table: ["viewTable", "Table"], cards: ["viewCards", "Cards"], grid: ["viewGrid", "Grid"], list: ["viewList", "List"] };
+export function ViewSwitch({ value, onChange, options }) {
+  return (
+    <div className="segmented viewSwitch" role="tablist" aria-label="Layout">
+      {options.map((o) => (
+        <button key={o} role="tab" aria-selected={value === o} className={value === o ? "on" : ""} onClick={() => onChange(o)} title={`${VIEW_META[o][1]} view`}>
+          <Icon name={VIEW_META[o][0]} size={15} /><span className="vsLabel">{VIEW_META[o][1]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}

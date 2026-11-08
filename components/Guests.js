@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyName, Empty, ScoreRing, StageBadge, TierBadge, timeAgo } from "./ui";
+import { Avatar, CompanyName, Empty, ScoreRing, StageBadge, TierBadge, ViewSwitch, timeAgo, useViewPref } from "./ui";
 import { ALL_STAGES, findDuplicates, normText, tierOf, toCSV } from "@/lib/crm";
 
 const uniq = (list) => [...new Set(list.filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -28,6 +28,7 @@ export default function Guests({ guests, api, initialFilter }) {
   const [q, setQ] = useState("");
   const [f, setF] = useState({ company: "", city: "", industry: "", stage: "", tier: "", role: "", past: "", college: "", move: "", ...(initialFilter || {}) });
   const [sort, setSort] = useState("score");
+  const [view, setView] = useViewPref("guests", "table");
   const [dupOnly, setDupOnly] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [removing, setRemoving] = useState(false);
@@ -184,11 +185,43 @@ export default function Guests({ guests, api, initialFilter }) {
             <option value="company">Company</option>
           </select>
         </label>
+        <ViewSwitch value={view} onChange={setView} options={["table", "cards"]} />
         <button className="btn btnSm" onClick={() => exportCSV(list)} disabled={!list.length}>
           <Icon name="download" size={14} />Export {active ? "filtered" : "all"} (CSV/Excel)
         </button>
       </div>
 
+      {view === "cards" ? (
+        <>
+          <div className="gCards">
+            {list.map((g) => (
+              <article key={g.id} className={`gCard${selected.has(g.id) ? " sel" : ""}`} onClick={() => api.open(g.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && api.open(g.id)}>
+                <label className="gcChk" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggle(g.id)} aria-label={`Select ${g.name}`} />
+                </label>
+                <div className="gcTop">
+                  <GuestPhoto g={g} size={52} ring />
+                  <ScoreRing score={g.score} likelihood={g.likelihood} size={44} stroke={4} animate={false} />
+                </div>
+                <div className="gcName">
+                  <strong>{g.name}{dupIds.has(g.id) && <span className="dupTag">Duplicate?</span>}</strong>
+                  <span className="muted small clamp2">{g.role || "—"}</span>
+                </div>
+                <CompanyName name={g.company} domain={g.companyDomain} />
+                <div className="gcMeta muted tiny">
+                  {[g.city, g.language].filter(Boolean).join(" · ") || "Location unknown"}
+                </div>
+                <div className="gcFoot">
+                  <StageBadge stage={g.stage} />
+                  <TierBadge guest={g} short />
+                  <span className="muted tiny push">{timeAgo(g.updatedAt)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+          {!list.length && <p className="muted center pad24">No guests match these filters.</p>}
+        </>
+      ) : (
       <div className="tableWrap card flush">
         <table className="gTable">
           <thead>
@@ -235,6 +268,7 @@ export default function Guests({ guests, api, initialFilter }) {
         </table>
         {!list.length && <p className="muted center pad24">No guests match these filters.</p>}
       </div>
+      )}
     </div>
   );
 }

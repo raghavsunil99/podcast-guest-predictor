@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyName, Drawer, Empty, fmtDate } from "./ui";
+import { CompanyName, Drawer, Empty, ViewSwitch, fmtDate, useViewPref } from "./ui";
 import { exportCSV } from "./Guests";
 import EpisodeForm, { episodeLinks } from "./EpisodeForm";
 
@@ -21,6 +21,7 @@ export function orderEpisodes(guests) {
 export default function Archive({ guests, api }) {
   const [editing, setEditing] = useState(null);
   const [moving, setMoving] = useState(false);
+  const [view, setView] = useViewPref("episodes", "cards");
   const ordered = orderEpisodes(guests); // oldest → newest
   const shown = [...ordered].reverse();
 
@@ -53,8 +54,56 @@ export default function Archive({ guests, api }) {
     <div className="stack12">
       <div className="row gap8">
         <p className="muted small grow">{ordered.length} episode{ordered.length > 1 ? "s" : ""} recorded · {published} published</p>
+        <ViewSwitch value={view} onChange={setView} options={["cards", "grid", "list"]} />
         <button className="btn btnSm" onClick={() => exportCSV(ordered.map((x) => x.g), "recorded-episodes")}><Icon name="download" size={14} />Export</button>
       </div>
+      {view === "list" && (
+        <div className="epList card flush">
+          {shown.map(({ g, no }) => {
+            const ep = g.episode || {};
+            const links = episodeLinks(ep);
+            return (
+              <div key={g.id} className="epRow" onClick={() => api.open(g.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && api.open(g.id)}>
+                <span className="epRowNo">EP {String(no).padStart(2, "0")}</span>
+                <GuestPhoto g={g} size={40} />
+                <div className="epRowMain">
+                  <strong className="ellipsis">{ep.title || `Episode with ${g.name}`}</strong>
+                  <span className="muted small ellipsis">{g.name} · {g.role}</span>
+                </div>
+                <span className="epRowCo hideSm"><CompanyName name={g.company} domain={g.companyDomain} /></span>
+                <span className="muted small hideSm epRowDate">{ep.recordedAt ? fmtDate(ep.recordedAt) : "No date"}</span>
+                <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : "Not published"}</span>
+                <span className="epRowLinks" onClick={(e) => e.stopPropagation()}>
+                  {links.map((l) => <a key={l.key} className="iconBtn sm" href={l.url} target="_blank" rel="noreferrer" title={l.label}><Icon name={l.key === "youtube" ? "play" : "external"} size={13} /></a>)}
+                  <button className="iconBtn sm" title="Move up (higher number)" disabled={no === ordered.length || moving} onClick={() => move(no - 1, 1)}><Icon name="arrowUp" size={13} /></button>
+                  <button className="iconBtn sm" title="Move down (lower number)" disabled={no === 1 || moving} onClick={() => move(no - 1, -1)}><Icon name="arrowDown" size={13} /></button>
+                  <button className="iconBtn sm" title="Edit episode" onClick={() => setEditing(g)}><Icon name="edit" size={13} /></button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {view === "grid" && (
+        <div className="epTiles">
+          {shown.map(({ g, no }) => {
+            const ep = g.episode || {};
+            return (
+              <div key={g.id} className="epTile" onClick={() => api.open(g.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && api.open(g.id)}>
+                <span className="epTileNo">EP {String(no).padStart(2, "0")}</span>
+                <button className="iconBtn sm epTileEdit" title="Edit episode" onClick={(e) => { e.stopPropagation(); setEditing(g); }}><Icon name="edit" size={12} /></button>
+                <GuestPhoto g={g} size={64} ring />
+                <strong className="clamp2">{g.name}</strong>
+                <span className="muted tiny ellipsis">{g.company}</span>
+                <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : ep.recordedAt ? fmtDate(ep.recordedAt) : "Recorded"}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {view === "cards" && (
       <div className="archiveGrid">
         {shown.map(({ g, no }, i) => {
           const idx = no - 1;
@@ -99,6 +148,7 @@ export default function Archive({ guests, api }) {
           );
         })}
       </div>
+      )}
 
       {editing && (
         <Drawer onClose={() => setEditing(null)} label="Edit episode">
