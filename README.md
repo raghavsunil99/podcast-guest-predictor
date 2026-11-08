@@ -1,4 +1,80 @@
-# Podcast Guest Predictor & Invite Generator
+<div align="center">
+
+# 🎙️ Podcast Guest Predictor
+
+**Find who'll say yes, then send them the perfect invite.**
+
+An AI-powered guest discovery and CRM platform for the **Entri Podcast**. Study a LinkedIn profile, predict how likely the guest is to accept, detect their regional background, and get a personalised invitation, then track every guest from discovery to recorded episode.
+
+Built by **Raghavendra** · Next.js · Gemini / Claude / OpenAI / DeepSeek
+
+![Dashboard](docs/screenshots/dashboard-dark.png)
+
+</div>
+
+## 🎬 Demo
+
+![Demo: dashboard, pipeline, guest prediction, career journey, recommendations](docs/screenshots/demo.gif)
+
+> Screenshots and demo use fictional guests (`npm run demo:seed`).
+
+## ✨ Features
+
+| | |
+|---|---|
+| **🔮 Acceptance prediction** | 0–100 score from 6 weighted signals (audience, posting, speaking, mentoring, story fit, reachability), with evidence for each. |
+| **🧠 Learns from outcomes** | Scores adjust (±15) based on traits of guests who accepted or rejected, with plain-English reasons. Native language and region are never used. |
+| **🗺️ Regional background** | Likely native language, honorific (garu / ji) and optional native greeting. |
+| **💼 Career journey** | LinkedIn-style timeline: companies, roles, promotions, Service → Product and career-switch labels, education with college type. |
+| **✉️ Ready-to-send messages** | Invitation, LinkedIn connection note (300 chars), WhatsApp and follow-up. |
+| **📋 Pipeline CRM** | Discovered → Shortlisted → Contacted → Responded → Accepted → Recorded, plus Contact later / Not responded / Rejected. Notes, history, follow-up reminders. |
+| **📊 Analytics & recommendations** | Funnel, conversion, company breakdown, next best guest, similar profiles, AI ideas for companies to explore. |
+| **🔌 Multiple AI providers** | Automatic fallback on rate limits; an invalid key stops instead of silently switching. Keys encrypted (AES-256-GCM). |
+| **☁️ Local or cloud** | JSON files by default, or PostgreSQL (Supabase / Neon) via `DATABASE_URL`. |
+| **🌗 Light / Dark / System** | |
+
+## 📸 Screenshots
+
+| Guest prediction & learning | Career journey |
+|---|---|
+| ![Prediction](docs/screenshots/guest-prediction.png) | ![Career](docs/screenshots/guest-career.png) |
+
+| Pipeline | Recommendations |
+|---|---|
+| ![Pipeline](docs/screenshots/pipeline.png) | ![Recommendations](docs/screenshots/recommendations.png) |
+
+| AI providers | Light mode |
+|---|---|
+| ![AI providers](docs/screenshots/ai-providers.png) | ![Light](docs/screenshots/dashboard-light.png) |
+
+## 🚀 Quick start
+
+```bash
+npm install
+cp .env.local.example .env.local   # add GEMINI_API_KEY (and APP_ENCRYPTION_KEY)
+npm run dev                         # http://localhost:3000
+```
+
+Best input: open the guest's LinkedIn page → ⌘P → **Save as PDF** (includes their photo), or paste the full profile text.
+
+## 🧪 Tests
+
+```bash
+npm test   # 37 tests, ~1s, no API keys needed
+```
+
+## 🎭 Demo data
+
+```bash
+npm run demo:seed   # fictional guests in demo-data/
+npm run demo        # http://localhost:3100
+```
+
+
+---
+
+## 📚 Details
+
 
 Predicts how likely a LinkedIn professional is to accept an Entri Podcast invitation, then drafts a personalized invite for them, using the Gemini API.
 

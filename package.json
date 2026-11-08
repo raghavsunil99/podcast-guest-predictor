@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "demo:seed": "DATA_DIR=demo-data node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file=.env.local scripts/seed-demo.mjs",
+    "demo": "DATA_DIR=demo-data NEXT_DIST_DIR=.next-demo next dev -p 3100",
     "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \"tests/*.test.mjs\""
   },
   "dependencies": {
