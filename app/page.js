@@ -317,33 +317,42 @@ export default function App() {
   );
 }
 
-// Compact "AI left today" panel in the sidebar: one line per enabled provider's main model.
+// Compact "AI usage today" panel in the sidebar: every model with used and left.
 function SideQuota({ usage, providers, onOpen }) {
-  const rows = (providers || []).filter((p) => p.enabled).map((p) => {
-    const m = usage?.byProvider?.[p.id]?.models?.find((x) => x.model === p.model);
-    const backupsLeft = (usage?.byProvider?.[p.id]?.models || []).filter((x) => x.model !== p.model && !x.exhausted).length;
-    let text, tone = "";
-    if (p.type === "ollama") text = "Unlimited";
-    else if (!m) text = "—";
-    else if (m.exhausted) { text = backupsLeft ? "Backup in use" : "Used up"; tone = "danger"; }
-    else if (m.limit) {
-      text = `${m.left} of ${m.limit} left`;
-      const pct = (m.used / m.limit) * 100;
-      tone = pct >= 90 ? "danger" : pct >= (p.warnAt || 80) ? "warn" : "";
-    } else text = `${m.used} used`;
-    const pct = p.type === "ollama" ? 0 : m?.exhausted ? 100 : m?.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
-    return { id: p.id, name: p.name, text, tone, pct, showBar: p.type !== "ollama" && (m?.limit || m?.exhausted) };
+  const groups = (providers || []).filter((p) => p.enabled).map((p) => {
+    if (p.type === "ollama") return { id: p.id, name: p.name, models: [{ model: p.model, text: "Unlimited", tone: "", showBar: false }] };
+    const list = usage?.byProvider?.[p.id]?.models || [];
+    return {
+      id: p.id,
+      name: p.name,
+      models: list.map((m) => {
+        const pct = m.exhausted ? 100 : m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
+        const tone = m.exhausted || pct >= 90 ? "danger" : pct >= (p.warnAt || 80) ? "warn" : "";
+        const text = m.exhausted ? `${m.used} used · none left` : m.limit ? `${m.used} used · ${m.left} left` : `${m.used} used`;
+        return { model: m.model, main: m.model === p.model, text, tone, pct, showBar: !!(m.limit || m.exhausted) };
+      }),
+    };
   });
-  if (!rows.length) return null;
-  const h = usage?.resetsInMs != null ? Math.floor(usage.resetsInMs / 3600000) : null;
-  const mm = usage?.resetsInMs != null ? Math.floor((usage.resetsInMs % 3600000) / 60000) : null;
+  if (!groups.length) return null;
+  const ms = usage?.resetsInMs;
+  const h = ms != null ? Math.floor(ms / 3600000) : null;
+  const mm = ms != null ? Math.floor((ms % 3600000) / 60000) : null;
+  const short = (m) => m.replace(/^gemini-/, "");
   return (
     <button className="sideQuota" onClick={onOpen} title="Open AI providers">
       <span className="sqHead">AI usage today{h != null && <em>resets in {h ? `${h}h ${mm}m` : `${mm}m`}</em>}</span>
-      {rows.map((r) => (
-        <span key={r.id} className="sqRow">
-          <span className="sqLine"><span className="sqName">{r.name}</span><span className={`sqVal ${r.tone}`}>{r.text}</span></span>
-          {r.showBar && <span className={`meter thin ${r.tone}`}><span style={{ width: `${r.pct}%` }} /></span>}
+      {groups.map((g) => (
+        <span key={g.id} className="sqGroup">
+          <span className="sqProv">{g.name}</span>
+          {g.models.map((r) => (
+            <span key={r.model} className="sqRow">
+              <span className="sqLine">
+                <span className="sqName">{short(r.model)}{r.main && <em> main</em>}</span>
+                <span className={`sqVal ${r.tone}`}>{r.text}</span>
+              </span>
+              {r.showBar && <span className={`meter thin ${r.tone}`}><span style={{ width: `${r.pct}%` }} /></span>}
+            </span>
+          ))}
         </span>
       ))}
     </button>

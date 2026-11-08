@@ -980,3 +980,7 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .meter.thin span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
 .meter.thin.warn span { background: var(--med); }
 .meter.thin.danger span { background: var(--low); }
+.sqGroup { display: flex; flex-direction: column; gap: 5px; }
+.sqProv { font-size: 12px; font-weight: 600; }
+.sqName em { font-style: normal; color: var(--accent-ink); font-size: 11px; }
+.sqLine { font-size: 11.5px; }
