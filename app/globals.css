@@ -1052,3 +1052,23 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
   .filterBar .searchBox { grid-column: 1 / -1; }
   .filterBar .fSelect { width: 100%; min-width: 0; flex: none; }
 }
+/* Duplicate merge */
+.mergeList { display: flex; flex-direction: column; gap: 10px; }
+.mergeRow { display: flex; gap: 16px; align-items: center; padding: 12px 14px; flex-wrap: wrap; }
+.mergeSide { flex: 1 1 380px; display: flex; flex-direction: column; gap: 8px; }
+.mergeRec { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); }
+.mergeRec.keep { border-color: var(--accent); }
+.mergeTag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); }
+.mergeTag.keep { background: var(--accent); color: #fff; }
+.mergeAct { flex: 0 1 260px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.moreFilters.on { border-color: var(--accent); color: var(--accent-ink); }
+.moreFilterRow { flex-basis: 100%; display: flex; gap: 8px; flex-wrap: wrap; padding-top: 2px; }
+@media (max-width: 640px) {
+  .filterBar .moreFilters { grid-column: 1 / -1; justify-content: center; }
+  .moreFilterRow { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+  .moreFilterRow .fSelect { width: 100%; min-width: 0; }
+}
+/* Pipeline: empty stages stay slim so full ones get room for names */
+.column.isEmpty .colHead { flex-wrap: wrap; row-gap: 2px; }
+.column.isEmpty .colHead strong { white-space: nowrap; overflow: visible; font-size: 11.5px; line-height: 1.25; flex-basis: 100%; order: 2; }
+.column.isEmpty .colEmpty { font-size: 11px; padding: 14px 4px; text-align: center; }

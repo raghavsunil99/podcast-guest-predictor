@@ -1,6 +1,6 @@
-import { convertCareers, enrichCompanies, importLegacy, listGuests, upsertFromResult } from "@/lib/guestStore";
+import { convertCareers, enrichCompanies, importLegacy, listGuests, mergeGuests, upsertFromResult } from "@/lib/guestStore";
 import { CAREER_SWITCH_SCHEMA, EDUCATION_SCHEMA, EXPERIENCE_SCHEMA } from "@/lib/career";
-import { decorate } from "@/lib/photos";
+import { decorate, deletePhoto, readPhoto, storePhoto } from "@/lib/photos";
 import { runAI } from "@/lib/ai/service";
 
 export const runtime = "nodejs";
@@ -18,6 +18,27 @@ export async function POST(req) {
   if (body.action === "save" && body.result) {
     const out = await upsertFromResult(body.result, body.url || "");
     return Response.json({ ...out, guest: decorate(out.guest) });
+  }
+  // { action: "merge", keepId, dropId } → combine a duplicate into the record you keep
+  if (body.action === "merge" && body.keepId && body.dropId) {
+    const all = await listGuests();
+    const keep = all.find((g) => g.id === body.keepId);
+    const drop = all.find((g) => g.id === body.dropId);
+    if (!keep || !drop) return Response.json({ error: "Guest not found." }, { status: 404 });
+    // Photos are stored per guest id, so copy the duplicate's photo across if the kept one has none.
+    let photoPatch = null;
+    if (!keep.photoUrl && drop.photoUrl?.startsWith("/api/photos/")) {
+      const ph = await readPhoto(drop.id).catch(() => null);
+      if (ph) photoPatch = await storePhoto(keep.id, `data:${ph.type};base64,${Buffer.from(ph.body).toString("base64")}`).catch(() => null);
+    }
+    let merged = await mergeGuests(keep.id, drop.id);
+    if (!merged) return Response.json({ error: "Couldn't merge." }, { status: 400 });
+    if (photoPatch || merged.photoUrl?.startsWith(`/api/photos/${drop.id}`)) {
+      const { updateGuest } = await import("@/lib/guestStore");
+      merged = await updateGuest(keep.id, { patch: { photoUrl: photoPatch || "" } });
+    }
+    await deletePhoto(drop.id).catch(() => {});
+    return Response.json({ guest: decorate(merged) });
   }
   if (body.action === "import" && Array.isArray(body.entries)) {
     return Response.json(await importLegacy(body.entries));

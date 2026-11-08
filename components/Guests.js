@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyName, Empty, ScoreRing, StageBadge, TierBadge, ViewSwitch, timeAgo, useViewPref } from "./ui";
-import { ALL_STAGES, findDuplicates, normText, tierOf, toCSV } from "@/lib/crm";
+import { ALL_STAGES, findDuplicates, normText, pickPrimary, tierOf, toCSV } from "@/lib/crm";
 
 const uniq = (list) => [...new Set(list.filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
@@ -87,6 +87,9 @@ export default function Guests({ guests, api, initialFilter }) {
 
   const active = Object.values(f).filter(Boolean).length + (q ? 1 : 0) + (dupOnly ? 1 : 0);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const [more, setMore] = useState(false);
+  const extraActive = ["role", "city", "industry", "past", "college", "move"].filter((k) => f[k]).length;
+  const moreOn = more || extraActive > 0;
 
   if (!guests.length) {
     return <Empty icon="users" title="No guests yet" action={<button className="btn btnPrimary" onClick={() => api.go("discover")}><Icon name="plus" size={16} />Study a profile</button>}>Study a LinkedIn profile and it will appear here.</Empty>;
@@ -100,7 +103,39 @@ export default function Guests({ guests, api, initialFilter }) {
           <span className="grow">
             <strong>{dups.length} possible duplicate{dups.length > 1 ? "s" : ""}</strong>: {dups.map((d) => d[0].name).join(", ")}. Same name or LinkedIn URL appears more than once.
           </span>
-          <button className="btn btnSm" onClick={() => setDupOnly((v) => !v)}>{dupOnly ? "Show all" : "Review"}</button>
+          <button className="btn btnSm" onClick={() => setDupOnly((v) => !v)}>{dupOnly ? "Done" : "Review & merge"}</button>
+        </div>
+      )}
+      {dupOnly && dups.length > 0 && (
+        <div className="mergeList">
+          {dups.map((grp) => {
+            // Merge the whole group into the record furthest along the pipeline.
+            const keep = grp.reduce((a, b) => pickPrimary(a, b)[0]);
+            const others = grp.filter((g) => g.id !== keep.id);
+            return (
+              <div key={keep.id} className="mergeRow card">
+                <div className="mergeSide">
+                  {grp.map((g) => (
+                    <div key={g.id} className={`mergeRec${g.id === keep.id ? " keep" : ""}`}>
+                      <GuestPhoto g={g} size={32} />
+                      <span className="grow">
+                        <strong>{g.name}</strong>
+                        <span className="muted tiny block">{[g.role, g.company].filter(Boolean).join(" · ")}</span>
+                        <span className="row gap6"><StageBadge stage={g.stage} />{typeof g.score === "number" && <span className="muted tiny">Score {g.score}</span>}<span className="muted tiny">· updated {timeAgo(g.updatedAt)}</span></span>
+                      </span>
+                      <span className={`mergeTag${g.id === keep.id ? " keep" : ""}`}>{g.id === keep.id ? "Keep" : "Merge in"}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mergeAct">
+                  <p className="muted tiny">Keeps the record furthest in the pipeline. Notes, history, contact details and episode info from the other are combined into it.</p>
+                  <button className="btn btnPrimary btnSm" disabled={removing} onClick={async () => { for (const o of others) await api.merge(keep.id, o.id); }}>
+                    <Icon name="users" size={14} />Merge {grp.length} records
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -109,18 +144,13 @@ export default function Guests({ guests, api, initialFilter }) {
           <Icon name="search" size={16} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, role, company, city…" />
         </div>
-        <input className="fSelect" value={f.role} onChange={set("role")} placeholder="Designation" />
         <select className="fSelect" value={f.company} onChange={set("company")}>
           <option value="">All companies</option>
           {opts.company.map((o) => <option key={o}>{o}</option>)}
         </select>
-        <select className="fSelect" value={f.city} onChange={set("city")}>
-          <option value="">All locations</option>
-          {opts.city.map((o) => <option key={o}>{o}</option>)}
-        </select>
-        <select className="fSelect" value={f.industry} onChange={set("industry")}>
-          <option value="">All industries</option>
-          {opts.industry.map((o) => <option key={o}>{o}</option>)}
+        <select className="fSelect" value={f.stage} onChange={set("stage")}>
+          <option value="">All stages</option>
+          {ALL_STAGES.map((s) => <option key={s}>{s}</option>)}
         </select>
         <select className="fSelect" value={f.tier} onChange={set("tier")}>
           <option value="">Any score</option>
@@ -128,28 +158,41 @@ export default function Guests({ guests, api, initialFilter }) {
           <option value="Medium">Medium (45–64)</option>
           <option value="Low">Low (under 45)</option>
         </select>
-        {opts.past.length > 0 && (
-          <select className="fSelect" value={f.past} onChange={set("past")}>
-            <option value="">Any previous company</option>
-            {opts.past.map((o) => <option key={o}>{o}</option>)}
-          </select>
+        <button className={`btn btnSm moreFilters${moreOn ? " on" : ""}`} onClick={() => setMore((v) => !v)} aria-expanded={moreOn}>
+          <Icon name="filter" size={14} />More filters{extraActive ? ` · ${extraActive}` : ""}
+          <Icon name="chevronDown" size={13} />
+        </button>
+        {moreOn && (
+          <div className="moreFilterRow">
+            <input className="fSelect" value={f.role} onChange={set("role")} placeholder="Designation" />
+            <select className="fSelect" value={f.city} onChange={set("city")}>
+              <option value="">All locations</option>
+              {opts.city.map((o) => <option key={o}>{o}</option>)}
+            </select>
+            <select className="fSelect" value={f.industry} onChange={set("industry")}>
+              <option value="">All industries</option>
+              {opts.industry.map((o) => <option key={o}>{o}</option>)}
+            </select>
+            {opts.past.length > 0 && (
+              <select className="fSelect" value={f.past} onChange={set("past")}>
+                <option value="">Any previous company</option>
+                {opts.past.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            )}
+            {opts.college.length > 0 && (
+              <select className="fSelect" value={f.college} onChange={set("college")}>
+                <option value="">Any college</option>
+                {opts.college.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            )}
+            {opts.move.length > 0 && (
+              <select className="fSelect" value={f.move} onChange={set("move")}>
+                <option value="">Any career pattern</option>
+                {opts.move.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            )}
+          </div>
         )}
-        {opts.college.length > 0 && (
-          <select className="fSelect" value={f.college} onChange={set("college")}>
-            <option value="">Any college</option>
-            {opts.college.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        )}
-        {opts.move.length > 0 && (
-          <select className="fSelect" value={f.move} onChange={set("move")}>
-            <option value="">Any career pattern</option>
-            {opts.move.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        )}
-        <select className="fSelect" value={f.stage} onChange={set("stage")}>
-          <option value="">All stages</option>
-          {ALL_STAGES.map((s) => <option key={s}>{s}</option>)}
-        </select>
       </div>
 
       {sel.length > 0 && (

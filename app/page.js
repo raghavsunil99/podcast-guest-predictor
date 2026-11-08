@@ -191,6 +191,14 @@ export default function App() {
         if (body.followedUp) flash(`Follow-up logged for ${guest.name}`);
         return guest;
       },
+      async merge(keepId, dropId) {
+        const r = await fetch("/api/guests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "merge", keepId, dropId }) });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok) { flash(out.error || "Couldn't merge."); return null; }
+        setGuests((list) => list.filter((g) => g.id !== dropId).map((g) => (g.id === keepId ? out.guest : g)));
+        flash(`Merged duplicate of ${out.guest.name}`);
+        return out.guest;
+      },
       async remove(id) {
         const r = await fetch(`/api/guests/${id}`, { method: "DELETE" });
         if (r.ok) setGuests((list) => list.filter((g) => g.id !== id));

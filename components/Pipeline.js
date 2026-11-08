@@ -129,12 +129,12 @@ export default function Pipeline({ guests, api, settings }) {
 
       <div
         className={`board${focus ? " focused" : ""}`}
-        style={focus ? undefined : { "--cols": cols.map((st) => (byStage(st).length ? "minmax(0, 1.7fr)" : "minmax(0, 0.75fr)")).join(" ") }}
+        style={focus ? undefined : { "--cols": cols.map((st) => (byStage(st).length ? "minmax(0, 2.4fr)" : "minmax(92px, 0.6fr)")).join(" ") }}
       >
         {cols.map((stage) => {
           const list = byStage(stage);
           return (
-            <section key={stage} className={`column${over === stage ? " dropOver" : ""}`} {...dropProps(stage)}>
+            <section key={stage} className={`column${over === stage ? " dropOver" : ""}${!list.length && !focus ? " isEmpty" : ""}`} title={!list.length ? `${stage}: empty` : undefined} {...dropProps(stage)}>
               <header className="colHead">
                 <span className={`colDot ${stageClass(stage)}`} aria-hidden />
                 <strong>{stage}</strong>

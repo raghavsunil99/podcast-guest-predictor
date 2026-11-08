@@ -334,3 +334,23 @@ test("one company even with different or invalid websites", () => {
   ]);
   assert.deepEqual(out.map((c) => [c.name, c.guests, c.domain]), [["Adobe", 3, "adobe.com"], ["American Airlines", 2, "americanairlines.com"]]);
 });
+
+// ---------- Merging duplicate guests ----------
+import { mergeGuestRecords, pickPrimary } from "../lib/crm.js";
+
+test("merge keeps the further stage and loses no notes, history or contact info", () => {
+  const a = { id: "a", name: "Ravi", stage: "Discovered", updatedAt: "2026-11-08", createdAt: "2026-11-01", milestones: { Discovered: "2026-11-01" },
+    notes: [{ id: "n1", text: "met at meetup", at: "2026-11-02" }], activity: [{ at: "2026-11-01", text: "created" }], contact: { email: "r@x.com" }, episode: {} };
+  const b = { id: "b", name: "Ravi", stage: "Recorded", updatedAt: "2026-11-05", createdAt: "2026-11-03", milestones: { Discovered: "2026-11-03", Recorded: "2026-11-05" },
+    notes: [{ id: "n2", text: "great call", at: "2026-11-05" }], activity: [{ at: "2026-11-05", text: "recorded" }], contact: { phone: "99" }, episode: { recordedAt: "2026-11-05" }, photoUrl: "/p" };
+  const [keep, drop] = pickPrimary(a, b);
+  assert.equal(keep.id, "b", "Recorded beats Discovered");
+  const m = mergeGuestRecords(keep, drop, "2026-11-09");
+  assert.equal(m.stage, "Recorded");
+  assert.deepEqual(m.notes.map((n) => n.id), ["n2", "n1"]);
+  assert.deepEqual(m.contact, { email: "r@x.com", phone: "99" });
+  assert.equal(m.milestones.Discovered, "2026-11-01", "earliest date kept");
+  assert.equal(m.createdAt, "2026-11-01");
+  assert.equal(m.activity.length, 3);
+  assert.equal(m.episode.recordedAt, "2026-11-05");
+});
