@@ -2,6 +2,13 @@
 
 Predicts how likely a LinkedIn professional is to accept an Entri Podcast invitation, then drafts a personalized invite for them, using the Gemini API.
 
+Built by Raghav. Current version: **1.1**.
+
+## Versions
+
+- **1.1**: new "Studio" design (ink header, coral accent, Instrument Serif + Plus Jakarta Sans), no Entri brand assets, "Built by Raghav" footer and version label.
+- **1.0**: first release with the Entri brand design. Restore it with `git checkout v1.0` (back to the latest with `git checkout main`).
+
 ## Setup
 
 1. Get a Gemini API key at https://aistudio.google.com/apikey

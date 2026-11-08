@@ -159,12 +159,10 @@ export default function Home() {
     <div className="shell">
       <header className="topbar">
         <div className="brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="logo" src="/brand/entri-logo-white.png" alt="Entri" width={116} height={44} />
-          <span className="divider" aria-hidden />
+          <span className="appMark" aria-hidden><MicIcon /></span>
           <div>
-            <h1>Podcast Guest Predictor &amp; Invite Generator</h1>
-            <p>Entri Podcast · Find who'll say yes, then send them the perfect invite</p>
+            <h1>Podcast Guest Predictor <span className="amp">&amp;</span> Invite Generator <span className="version">v{APP_VERSION}</span></h1>
+            <p><span className="onAir">On air</span> Entri Podcast · Find who&apos;ll say yes, then send them the perfect invite</p>
           </div>
         </div>
         <div className="topActions">
@@ -257,7 +255,7 @@ export default function Home() {
         <section className="card outputCard">
           {!result && !loading && (
             <div className="empty">
-              <div className="emptyIcon" aria-hidden><span className="tipMark" /></div>
+              <div className="emptyIcon" aria-hidden><MicIcon /></div>
               <h3>Your guest prediction will appear here</h3>
               <p>Add a guest&apos;s profile on the left. You&apos;ll see how likely they are to say yes and why, plus a ready-to-send invitation.</p>
             </div>
@@ -419,6 +417,14 @@ export default function Home() {
         </section>
       </main>
 
+      <footer className="footer">
+        <span>Built by <strong>Raghav</strong></span>
+        <span className="dotSep" aria-hidden>•</span>
+        <span>Version {APP_VERSION}</span>
+        <span className="dotSep" aria-hidden>•</span>
+        <span>Powered by Gemini</span>
+      </footer>
+
       {showUsage && <UsageModal usage={usage} onRefresh={refreshUsage} onClose={() => setShowUsage(false)} />}
 
       {showSettings && (
@@ -482,18 +488,30 @@ export default function Home() {
   );
 }
 
+const APP_VERSION = "1.1";
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2.5" width="6" height="12" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.5V21.5M8.5 21.5h7" />
+    </svg>
+  );
+}
+
 const VERDICT = {
   High: { text: "Likely to say yes", cls: "vHigh" },
   Medium: { text: "Worth a try", cls: "vMedium" },
   Low: { text: "Long shot", cls: "vLow" },
 };
 
-function ScoreRing({ score }) {
+function ScoreRing({ score, cls = "" }) {
   const r = 52;
   const c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, score)) / 100;
   return (
-    <svg className="ring" viewBox="0 0 128 128" role="img" aria-label={`${score} out of 100`}>
+    <svg className={`ring ${cls}`} viewBox="0 0 128 128" role="img" aria-label={`${score} out of 100`}>
       <circle cx="64" cy="64" r={r} className="ringTrack" />
       <circle
         cx="64" cy="64" r={r} className="ringFill"
@@ -511,10 +529,11 @@ function PredictionCard({ acc, ss }) {
   return (
     <section className="predict" aria-label="Guest prediction">
       <div className="predictHead">
-        <h3><span className="tipMark light" aria-hidden />Guest prediction</h3>
+        <h3><span className="liveDot" aria-hidden />Guest prediction</h3>
+        <span className="predictTag">Weighted score · 6 criteria</span>
       </div>
       <div className="predictTop">
-        <ScoreRing score={acc.score} />
+        <ScoreRing score={acc.score} cls={v.cls} />
         <div className="predictVerdict">
           <span className={`verdict ${v.cls}`}>{v.text}</span>
           <p className="predictSummary">{acc.summary}</p>
@@ -549,7 +568,7 @@ function PredictionCard({ acc, ss }) {
                 <li key={c.id} className={c.found ? "" : "missing"}>
                   <div className="critRow">
                     <div className="critName">
-                      <span className="tipMark" aria-hidden />
+                      <span className={`critDot ${level}`} aria-hidden />
                       <strong>{c.label}</strong>
                       <span className="weight">{c.weight}% weight</span>
                       {!c.found && <span className="noData">Not in profile</span>}
