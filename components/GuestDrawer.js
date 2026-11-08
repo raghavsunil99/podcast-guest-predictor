@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
 import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo } from "./ui";
-import { BackgroundPanel, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
+import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
 
 const TABS = ["Overview", "Messages", "Contact", "Notes & history", "Episode"];
@@ -149,10 +149,20 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
       <div className="drawerBody">
         {tab === "Overview" && (
           <div className="stack16">
-            {result?.acceptance ? <PredictionPanel acc={result.acceptance} ss={result.socialSignals} learning={g.learning} onOpenGuest={api.open} /> : <TierBadge guest={g} />}
+            {result?.acceptance ? <PredictionPanel
+                acc={result.acceptance}
+                ss={result.socialSignals}
+                learning={g.learning}
+                onOpenGuest={api.open}
+                onSaveSignals={async (signals) => {
+                  const ng = await api.patch(g.id, { signals });
+                  if (ng?.result) setResult(ng.result);
+                }}
+              /> : <TierBadge guest={g} />}
             {result?.hook && (
               <div className="hookCard"><span className="eyebrow">The hook</span><p>{result.hook}</p></div>
             )}
+            {result && <CareerTimeline profile={result.profile} />}
             {result && <BackgroundPanel result={result} />}
             {result && <ProfileSummary result={result} />}
           </div>

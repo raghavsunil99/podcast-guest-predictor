@@ -16,7 +16,7 @@ import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { followUpsDue } from "@/lib/crm";
 import { applyLearning, buildModel } from "@/lib/learning";
 
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.2";
 const SETTINGS_KEY = "epi.settings.v1";
 const HISTORY_KEY = "epi.history.v1";
 const MIGRATED_KEY = "epi.migrated.v2";
@@ -24,7 +24,7 @@ const MIGRATED_KEY = "epi.migrated.v2";
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "dashboard", title: "Dashboard", sub: "How your guest outreach is going" },
   { id: "discover", label: "Discover", icon: "discover", title: "Discover guests", sub: "Study a LinkedIn profile, predict a yes, and draft the invite" },
-  { id: "pipeline", label: "Pipeline", icon: "pipeline", title: "Pipeline", sub: "Discovered → Shortlisted → Contacted → Responded → Confirmed → Recorded" },
+  { id: "pipeline", label: "Pipeline", icon: "pipeline", title: "Pipeline", sub: "Drag guests through Discovered → Shortlisted → Contacted → Responded → Accepted → Recorded" },
   { id: "guests", label: "Guests", icon: "users", title: "Guests", sub: "Every guest you've studied, with filters and export" },
   { id: "companies", label: "Companies", icon: "building", title: "Companies", sub: "Guests discovered, contacted and recorded per company" },
   { id: "recommendations", label: "Recommendations", icon: "compass", title: "Recommendations", sub: "Who to approach next and where to look" },
@@ -104,7 +104,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setSettings({ ...DEFAULT_SETTINGS, ...loadLocal(SETTINGS_KEY, {}) });
+    // Settings live on the server (database or data/ folder). Older browser-only settings move there once.
+    fetch("/api/settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        const local = loadLocal(SETTINGS_KEY, null);
+        const s = d.settings || local || {};
+        setSettings({ ...DEFAULT_SETTINGS, ...s });
+        if (!d.settings && local) fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings: local }) });
+      })
+      .catch(() => setSettings({ ...DEFAULT_SETTINGS, ...loadLocal(SETTINGS_KEY, {}) }));
     (async () => {
       try {
         let list = (await (await fetch("/api/guests", { cache: "no-store" })).json()).guests || [];
@@ -122,6 +131,18 @@ export default function App() {
           }
         }
         setGuests(list);
+        // Older guests saved career history as plain text; convert it to the structured timeline once.
+        if (list.some((g) => g.result?.profile && !g.result.profile.experience?.length && !g.careerConvertTried)) {
+          fetch("/api/guests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "career" }) })
+            .then((r) => r.json())
+            .then(async (out) => {
+              if (out.updated) {
+                setGuests((await (await fetch("/api/guests", { cache: "no-store" })).json()).guests || []);
+                flash(`Career history organised for ${out.updated} guest${out.updated > 1 ? "s" : ""}`);
+              }
+            })
+            .catch(() => {});
+        }
         // Older guests have no company website (needed for logos); look those up once.
         if (list.some((g) => g.company && !g.enrichTried && (!g.companyDomain || !g.industry))) {
           fetch("/api/guests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "enrich" }) })
@@ -181,6 +202,7 @@ export default function App() {
     setSettings(s);
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+      fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ settings: s }) });
     } catch {}
   }
 

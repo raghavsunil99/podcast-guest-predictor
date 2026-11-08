@@ -25,9 +25,11 @@ const SORTS = {
 
 export default function Guests({ guests, api, initialFilter }) {
   const [q, setQ] = useState("");
-  const [f, setF] = useState({ company: "", city: "", industry: "", stage: "", tier: "", role: "", ...(initialFilter || {}) });
+  const [f, setF] = useState({ company: "", city: "", industry: "", stage: "", tier: "", role: "", past: "", college: "", move: "", ...(initialFilter || {}) });
   const [sort, setSort] = useState("score");
   const [dupOnly, setDupOnly] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [removing, setRemoving] = useState(false);
 
   const dups = useMemo(() => findDuplicates(guests), [guests]);
   const dupIds = useMemo(() => new Set(dups.flat().map((g) => g.id)), [dups]);
@@ -36,6 +38,9 @@ export default function Guests({ guests, api, initialFilter }) {
       company: uniq(guests.map((g) => g.company)),
       city: uniq(guests.map((g) => g.city)),
       industry: uniq(guests.map((g) => g.industry || g.domain)),
+      past: uniq(guests.flatMap((g) => g.pastCompanies || [])),
+      college: uniq(guests.flatMap((g) => g.colleges || [])),
+      move: uniq(guests.flatMap((g) => (g.careerTags || []).filter((t) => !t.startsWith("Promoted") && t !== "Long tenure"))),
     }),
     [guests]
   );
@@ -45,15 +50,38 @@ export default function Guests({ guests, api, initialFilter }) {
     const nr = normText(f.role);
     return guests
       .filter((g) => !dupOnly || dupIds.has(g.id))
-      .filter((g) => !nq || normText([g.name, g.role, g.company, g.city, g.domain, g.language].join(" ")).includes(nq))
+      .filter((g) => !nq || normText([g.name, g.role, g.company, g.city, g.domain, g.language, ...(g.pastCompanies || []), ...(g.colleges || [])].join(" ")).includes(nq))
       .filter((g) => !nr || normText(g.role).includes(nr))
       .filter((g) => !f.company || g.company === f.company)
       .filter((g) => !f.city || g.city === f.city)
       .filter((g) => !f.industry || (g.industry || g.domain) === f.industry)
       .filter((g) => !f.stage || g.stage === f.stage)
       .filter((g) => !f.tier || tierOf(g) === f.tier)
+      .filter((g) => !f.past || (g.pastCompanies || []).includes(f.past))
+      .filter((g) => !f.college || (g.colleges || []).includes(f.college))
+      .filter((g) => !f.move || (g.careerTags || []).includes(f.move))
       .sort(SORTS[sort]);
   }, [guests, q, f, sort, dupOnly, dupIds]);
+
+  const visibleIds = list.map((g) => g.id);
+  const sel = visibleIds.filter((id) => selected.has(id));
+  const allOn = visibleIds.length > 0 && sel.length === visibleIds.length;
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => setSelected(allOn ? new Set() : new Set(visibleIds));
+  async function removeSelected() {
+    const names = list.filter((g) => selected.has(g.id)).map((g) => g.name);
+    if (!names.length) return;
+    const preview = names.slice(0, 5).join(", ") + (names.length > 5 ? ` and ${names.length - 5} more` : "");
+    if (!confirm(`Remove ${names.length} guest${names.length > 1 ? "s" : ""} (${preview})?\n\nTheir notes, history and photos are deleted too. This can't be undone.`)) return;
+    setRemoving(true);
+    for (const id of sel) await api.remove(id);
+    setSelected(new Set());
+    setRemoving(false);
+  }
+  async function moveSelected(stage) {
+    for (const id of sel) await api.patch(id, { stage });
+    setSelected(new Set());
+  }
 
   const active = Object.values(f).filter(Boolean).length + (q ? 1 : 0) + (dupOnly ? 1 : 0);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -98,17 +126,50 @@ export default function Guests({ guests, api, initialFilter }) {
           <option value="Medium">Medium (45–64)</option>
           <option value="Low">Low (under 45)</option>
         </select>
+        {opts.past.length > 0 && (
+          <select className="fSelect" value={f.past} onChange={set("past")}>
+            <option value="">Any previous company</option>
+            {opts.past.map((o) => <option key={o}>{o}</option>)}
+          </select>
+        )}
+        {opts.college.length > 0 && (
+          <select className="fSelect" value={f.college} onChange={set("college")}>
+            <option value="">Any college</option>
+            {opts.college.map((o) => <option key={o}>{o}</option>)}
+          </select>
+        )}
+        {opts.move.length > 0 && (
+          <select className="fSelect" value={f.move} onChange={set("move")}>
+            <option value="">Any career pattern</option>
+            {opts.move.map((o) => <option key={o}>{o}</option>)}
+          </select>
+        )}
         <select className="fSelect" value={f.stage} onChange={set("stage")}>
           <option value="">All stages</option>
           {ALL_STAGES.map((s) => <option key={s}>{s}</option>)}
         </select>
       </div>
 
+      {sel.length > 0 && (
+        <div className="bulkBar">
+          <strong>{sel.length} selected</strong>
+          <button className="linkBtn" onClick={() => setSelected(new Set())}>Clear</button>
+          <span className="push" />
+          <select className="fSelect" value="" onChange={(e) => e.target.value && moveSelected(e.target.value)} aria-label="Move selected to stage">
+            <option value="">Move to…</option>
+            {ALL_STAGES.map((st) => <option key={st}>{st}</option>)}
+          </select>
+          <button className="btn btnSm btnDanger" onClick={removeSelected} disabled={removing}>
+            {removing ? <span className="btnSpinner" /> : <Icon name="trash" size={14} />}Remove selected
+          </button>
+        </div>
+      )}
+
       <div className="row gap8 wrap listBar">
         <span className="muted small">
           {list.length} of {guests.length} guests
           {active > 0 && (
-            <button className="linkBtn" onClick={() => { setQ(""); setDupOnly(false); setF({ company: "", city: "", industry: "", stage: "", tier: "", role: "" }); }}>
+            <button className="linkBtn" onClick={() => { setQ(""); setDupOnly(false); setF({ company: "", city: "", industry: "", stage: "", tier: "", role: "", past: "", college: "", move: "" }); }}>
               · Clear filters
             </button>
           )}
@@ -131,6 +192,7 @@ export default function Guests({ guests, api, initialFilter }) {
         <table className="gTable">
           <thead>
             <tr>
+              <th className="chkCell"><input type="checkbox" checked={allOn} onChange={toggleAll} aria-label="Select all shown guests" /></th>
               <th>Guest</th>
               <th>Company</th>
               <th className="hideSm">Location</th>
@@ -142,7 +204,10 @@ export default function Guests({ guests, api, initialFilter }) {
           </thead>
           <tbody>
             {list.map((g) => (
-              <tr key={g.id} onClick={() => api.open(g.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && api.open(g.id)}>
+              <tr key={g.id} className={selected.has(g.id) ? "rowSel" : ""} onClick={() => api.open(g.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && api.open(g.id)}>
+                <td className="chkCell" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggle(g.id)} aria-label={`Select ${g.name}`} />
+                </td>
                 <td>
                   <div className="cellGuest">
                     <Avatar name={g.name} src={g.photoUrl} alt={g.gravatarUrl} size={34} />

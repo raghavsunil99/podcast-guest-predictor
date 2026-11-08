@@ -65,7 +65,10 @@ export default function Companies({ guests, api }) {
                 {c.members.slice(0, 4).map((m) => <Avatar key={m.id} name={m.name} src={m.photoUrl} size={26} ring />)}
                 {c.members.length > 4 && <span className="more">+{c.members.length - 4}</span>}
               </div>
-              {c.open > 0 && <span className="openTag">{c.open} not contacted</span>}
+              <span className="row gap6">
+                {c.alumni.length > 0 && <span className="alumniTag" title={c.alumni.map((a) => a.name).join(", ")}>+{c.alumni.length} former</span>}
+                {c.open > 0 && <span className="openTag">{c.open} not contacted</span>}
+              </span>
             </div>
           </button>
         ))}
@@ -96,6 +99,16 @@ export default function Companies({ guests, api }) {
               </div>
             ))}
           </div>
+          {open.alumni.length > 0 && (
+            <div className="drawerBody stack8 alumniBlock">
+              <span className="eyebrow">Former {open.name} employees in your list</span>
+              {open.alumni.map((m) => (
+                <div key={m.id} className="listRow">
+                  <GuestChip g={m} onOpen={(id) => { setOpenKey(null); api.open(id); }} extra={<span className="muted tiny">Now at {m.company || "—"}</span>} />
+                </div>
+              ))}
+            </div>
+          )}
           <div className="drawerFoot">
             <button className="btn btnSm" onClick={() => exportCSV(open.members, `guests-${open.name.toLowerCase().replace(/\W+/g, "-")}`)}>
               <Icon name="download" size={14} />Export {open.name} guests

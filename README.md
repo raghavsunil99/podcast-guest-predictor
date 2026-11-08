@@ -2,10 +2,11 @@
 
 Predicts how likely a LinkedIn professional is to accept an Entri Podcast invitation, then drafts a personalized invite for them, using the Gemini API.
 
-Built by Raghavendra. Current version: **2.1**.
+Built by Raghavendra. Current version: **2.2**.
 
 ## Versions
 
+- **2.2**: optional cloud database (Supabase / Neon PostgreSQL) via `DATABASE_URL`, migration script, settings stored with the data, storage status in Settings → Data.
 - **2.1**: smarter predictions, multiple AI providers, themes.
   - Outcomes tracked separately: Discovered, Shortlisted, Contact later, Contacted, Not responded, Responded, Accepted, Rejected, Recorded.
   - Outcome learning (`lib/learning.js`): each guest's AI score is adjusted (±15 max) using traits of past guests who accepted or rejected (seniority, role, experience, industry, expertise, behavioural signals; company is a minor trait; native language/region never used), with the reasons shown. Relevant / not relevant feedback on guests and AI ideas.
@@ -22,6 +23,26 @@ Built by Raghavendra. Current version: **2.1**.
   - Guests are stored in `data/guests.json`; v1 browser history is imported automatically and duplicates are merged.
 - **1.1**: new "Studio" design (ink header, coral accent, Instrument Serif + Plus Jakarta Sans), no Entri brand assets, "Built by Raghav" footer and version label.
 - **1.0**: first release with the Entri brand design. Restore it with `git checkout v1.0` (back to the latest with `git checkout main`).
+
+## Cloud storage (use the app from any computer)
+
+By default all data lives in the `data/` folder on this computer. To keep it in a cloud PostgreSQL database instead:
+
+1. Create a free project at https://supabase.com (or https://neon.tech).
+2. Copy the connection string. In Supabase: **Connect → Session pooler** (looks like `postgresql://postgres.xxxx:PASSWORD@aws-0-ap-south-1.pooler.supabase.com:5432/postgres`).
+3. Add it to `.env.local`:
+   ```
+   DATABASE_URL=postgresql://...
+   ```
+4. Copy your existing local data into it (safe to run more than once):
+   ```bash
+   node --env-file=.env.local scripts/migrate-to-db.mjs
+   ```
+5. Restart the app. **Settings → Data** shows "Cloud database · Connected".
+
+The app creates its tables automatically (`guests`, `app_kv`, `usage_events`, `photos`). Guests, notes, history, photos, AI provider settings, usage and podcast settings are all stored there.
+
+**On a new laptop:** clone/copy the app, run `npm install`, and copy `.env.local` across. It must include the same `DATABASE_URL`, `GEMINI_API_KEY` and **`APP_ENCRYPTION_KEY`** (without it, API keys saved in Settings can't be decrypted). Keep `.env.local` private and out of git.
 
 ## Setup
 

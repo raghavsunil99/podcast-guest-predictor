@@ -3,7 +3,8 @@
 // Views of a single generation result: prediction, background, and the editable messages.
 import { useState } from "react";
 import Icon from "./icons";
-import { ScoreRing, TierBadge, fmt, useCopy } from "./ui";
+import { CompanyLogo, ScoreRing, TierBadge, fmt, useCopy } from "./ui";
+import { analyzeCareer, fmtMonths } from "@/lib/career";
 import { tierOf } from "@/lib/crm";
 
 const VERDICT = { High: "Likely to say yes", Medium: "Worth a try", Low: "Long shot" };
@@ -57,7 +58,72 @@ function LearnedPanel({ learning, onOpenGuest }) {
   );
 }
 
-export function PredictionPanel({ acc, ss, learning, onOpenGuest }) {
+const isUnknown = (v) => !v || v === "Unknown" || v === "None found";
+
+function SignalsEditor({ ss, onSave, onCancel }) {
+  const [v, setV] = useState({
+    followers: isUnknown(ss.followers) ? "" : ss.followers,
+    connections: isUnknown(ss.connections) ? "" : ss.connections,
+    postingActivity: ss.postingActivity === "Unknown" ? "" : ss.postingActivity,
+    publicSpeaking: ss.publicSpeaking || "",
+  });
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="signalsEdit"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const out = {};
+        if (v.followers !== (isUnknown(ss.followers) ? "" : ss.followers)) out.followers = v.followers;
+        if (v.connections !== (isUnknown(ss.connections) ? "" : ss.connections)) out.connections = v.connections;
+        if (v.postingActivity && v.postingActivity !== ss.postingActivity) out.postingActivity = v.postingActivity;
+        if (v.publicSpeaking && v.publicSpeaking !== ss.publicSpeaking) out.publicSpeaking = v.publicSpeaking;
+        await onSave(out);
+        setBusy(false);
+      }}
+    >
+      <p className="muted small">Open their LinkedIn profile and fill in what you see. The score is recalculated from your numbers.</p>
+      <div className="formGrid four">
+        <label className="field"><span>Followers</span><input value={v.followers} onChange={(e) => setV({ ...v, followers: e.target.value })} placeholder="e.g. 4,200" /></label>
+        <label className="field"><span>Connections</span><input value={v.connections} onChange={(e) => setV({ ...v, connections: e.target.value })} placeholder="e.g. 500+" /></label>
+        <label className="field">
+          <span>Posts on LinkedIn</span>
+          <select value={v.postingActivity} onChange={(e) => setV({ ...v, postingActivity: e.target.value })}>
+            <option value="">Not sure</option><option>Frequent</option><option>Occasional</option><option>Rare</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Public speaking</span>
+          <select value={v.publicSpeaking} onChange={(e) => setV({ ...v, publicSpeaking: e.target.value })}>
+            <option value="">Not sure</option><option>Strong</option><option>Some</option><option value="None found">None</option>
+          </select>
+        </label>
+      </div>
+      <div className="row gap8">
+        <button className="btn btnPrimary btnSm" disabled={busy}>{busy ? <span className="btnSpinner" /> : <Icon name="check" size={14} />}Save &amp; rescore</button>
+        <button type="button" className="btn btnSm" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+function SignalCell({ label, value, manual, onEdit }) {
+  const unknown = isUnknown(value);
+  return (
+    <div className={`sigCell${unknown ? " sigUnknown" : ""}`}>
+      <dt>{label}{manual && <span className="srcTag src-manual">You</span>}</dt>
+      <dd>
+        {unknown ? (
+          onEdit ? <button type="button" className="linkBtn" onClick={onEdit}>Not in profile · Add</button> : <span className="muted">Not in profile</span>
+        ) : value}
+      </dd>
+    </div>
+  );
+}
+
+export function PredictionPanel({ acc, ss, learning, onOpenGuest, onSaveSignals }) {
+  const [editing, setEditing] = useState(false);
   if (!acc) return null;
   const finalScore = learning?.active ? Math.max(0, Math.min(100, learning.base + learning.adjust)) : acc.score;
   const tier = tierOf({ score: finalScore });
@@ -74,7 +140,7 @@ export function PredictionPanel({ acc, ss, learning, onOpenGuest }) {
           {criteria && (
             <p className={`coverage${acc.dataCoverage < 3 ? " coverageLow" : ""}`}>
               <Icon name="target" size={14} /> {acc.dataCoverage} of {criteria.length} signals found in the profile
-              {acc.dataCoverage < 3 && " · paste their follower count and Activity section for a sharper score"}
+              {acc.dataCoverage < 3 && (onSaveSignals ? " · add their followers and activity below for a sharper score" : " · paste their follower count and Activity section for a sharper score")}
             </p>
           )}
         </div>
@@ -82,14 +148,20 @@ export function PredictionPanel({ acc, ss, learning, onOpenGuest }) {
 
       <LearnedPanel learning={learning} onOpenGuest={onOpenGuest} />
 
-      {ss && (
-        <dl className="signals">
-          <div><dt>Followers</dt><dd>{ss.followers}</dd></div>
-          <div><dt>Connections</dt><dd>{ss.connections}</dd></div>
-          <div><dt>Posting</dt><dd>{ss.postingActivity}</dd></div>
-          <div><dt>Speaking</dt><dd>{ss.publicSpeaking}</dd></div>
-        </dl>
+      {ss && !editing && (
+        <div className="signalsWrap">
+          <dl className="signals">
+            <SignalCell label="Followers" value={ss.followers} manual={ss.manual?.followers} onEdit={onSaveSignals && (() => setEditing(true))} />
+            <SignalCell label="Connections" value={ss.connections} manual={ss.manual?.connections} onEdit={onSaveSignals && (() => setEditing(true))} />
+            <SignalCell label="Posting" value={ss.postingActivity} manual={ss.manual?.postingActivity} onEdit={onSaveSignals && (() => setEditing(true))} />
+            <SignalCell label="Speaking" value={ss.publicSpeaking} manual={ss.manual?.publicSpeaking} onEdit={onSaveSignals && (() => setEditing(true))} />
+          </dl>
+          {onSaveSignals && (
+            <button type="button" className="iconBtn sm sigEditBtn" title="Edit LinkedIn signals" onClick={() => setEditing(true)}><Icon name="edit" size={13} /></button>
+          )}
+        </div>
       )}
+      {ss && editing && <SignalsEditor ss={ss} onCancel={() => setEditing(false)} onSave={async (sig) => { if (Object.keys(sig).length) await onSaveSignals(sig); setEditing(false); }} />}
 
       {criteria ? (
         <div className="criteria">
@@ -152,10 +224,14 @@ export function BackgroundPanel({ result }) {
         {p.education?.length ? (
           <ul className="eduList">
             {p.education.map((e, i) => (
-              <li key={i}>
-                <strong>{e.institution}</strong>
-                {e.place && <span className="muted"> · {e.place}</span>}
-                {(e.degree || e.years) && <div className="muted small">{[e.degree, e.years].filter(Boolean).join(" · ")}</div>}
+              <li key={i} className="eduItem">
+                <CompanyLogo name={e.institution} domain={e.domain} size={30} />
+                <div className="eduText">
+                  <strong>{e.institution}</strong>
+                  {(e.degree || e.field) && <span className="small">{[e.degree, e.field].filter(Boolean).join(", ")}</span>}
+                  <span className="muted small">{[e.years, e.place].filter(Boolean).join(" · ")}</span>
+                  {e.type && !["Other", "School"].includes(e.type) && <span className="eduType" title="Estimated from the institution name">{e.type}</span>}
+                </div>
               </li>
             ))}
           </ul>
@@ -241,14 +317,68 @@ export function MessagesPanel({ result, onEdit, linkedinUrl, onCopied }) {
   );
 }
 
+const range = (r) => [r.start, r.end].filter(Boolean).join(" – ").replace(/(\d{4})-(\d{2})/g, (_, y, m) => `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][Number(m) - 1] || ""} ${y}`);
+
+export function CareerTimeline({ profile }) {
+  const c = analyzeCareer(profile?.experience);
+  if (!c.jobs.length) return null;
+  return (
+    <div className="panel career">
+      <div className="careerHead">
+        <span className="eyebrow">Career journey</span>
+        <div className="careerStats">
+          {c.totalMonths != null && <span><b>{fmtMonths(c.totalMonths, c.approx)}</b> experience</span>}
+          <span><b>{c.companies}</b> compan{c.companies === 1 ? "y" : "ies"}</span>
+          {c.avgTenureMonths != null && c.companies > 1 && <span><b>{fmtMonths(c.avgTenureMonths, c.approx)}</b> avg per company</span>}
+          {c.promotions > 0 && <span><b>{c.promotions}</b> promotion{c.promotions > 1 ? "s" : ""}</span>}
+        </div>
+      </div>
+      {(c.tags.length > 0 || profile.careerSwitch) && (
+        <div className="moveTags">
+          {profile.careerSwitch && <span className="moveTag switch">Career switch: {profile.careerSwitch}</span>}
+          {c.moves.map((m, i) => <span key={i} className="moveTag" title={m.type}>{m.type}: {m.text}</span>)}
+          {c.tags.filter((t) => t.startsWith("Promoted") || t === "Long tenure").map((t) => <span key={t} className="moveTag neutral">{t}</span>)}
+        </div>
+      )}
+      <ol className="jobs">
+        {c.jobs.map((j, i) => (
+          <li key={i} className={`job${j.current ? " current" : ""}${j.intern ? " intern" : ""}`}>
+            <CompanyLogo name={j.company} domain={j.companyDomain} size={34} />
+            <div className="jobBody">
+              <div className="jobHead">
+                <strong>{j.company}</strong>
+                {j.months != null && <span className="jobDur">{fmtMonths(j.months, j.approx)}</span>}
+                {j.current && <span className="nowTag">Current</span>}
+                {j.service && <span className="kindTag">Services</span>}
+                {j.bigTech && <span className="kindTag big">Big Tech</span>}
+                {j.intern && <span className="kindTag">Internship</span>}
+              </div>
+              {j.location && <span className="muted tiny">{j.location}</span>}
+              <ol className={`roles${j.roles.length > 1 ? " multi" : ""}`}>
+                {j.roles.map((r, k) => (
+                  <li key={k}>
+                    <span className="roleTitle">{r.title}</span>
+                    <span className="muted tiny">{range(r)}{r.months != null ? ` · ${fmtMonths(r.months, r.approx)}` : ""}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function ProfileSummary({ result }) {
   const p = result?.profile || {};
-  if (!p.aboutSummary && !p.careerPath?.length) return null;
+  const structured = p.experience?.length > 0;
+  if (!p.aboutSummary && !p.careerPath?.length && !structured) return null;
   return (
     <div className="panel">
-      <div className="eyebrow">Career</div>
+      <div className="eyebrow">About</div>
       {p.aboutSummary && <p className="small">{p.aboutSummary}</p>}
-      {p.careerPath?.length > 0 && (
+      {!structured && p.careerPath?.length > 0 && (
         <ol className="timeline">{p.careerPath.map((c, i) => <li key={i}>{c}</li>)}</ol>
       )}
       {p.skills?.length > 0 && <div className="chips">{p.skills.map((s, i) => <span key={i}>{s}</span>)}</div>}

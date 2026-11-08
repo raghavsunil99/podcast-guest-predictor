@@ -34,12 +34,13 @@ export default function Settings({ settings, onSave, usage, refreshUsage, guests
           <ThemeSwitcher pref={themePref} onChange={setThemePref} labels />
         </div>
       )}
+      {tab === "data" && <StorageStatus />}
       {tab === "data" && (
         <div className="card stack12">
           <h3>Your data</h3>
           <p className="muted small">
-            Guests, notes, history and photos are stored on this computer in the app&apos;s <code>data</code> folder. AI provider keys are stored there encrypted
-            (AES-256-GCM, key in <code>.env.local</code>) and are never sent to the browser. Settings and theme stay in this browser.
+            Guests, notes, history, photos and settings are stored where the box above says. AI provider keys are stored encrypted
+            (AES-256-GCM, key in <code>.env.local</code>) and are never sent to the browser. The theme choice stays in each browser.
           </p>
           <div className="row gap8 wrap">
             <button className="btn" onClick={() => exportCSV(guests, "all-guests")} disabled={!guests.length}>
@@ -285,6 +286,34 @@ function ProviderCard({ p, index, count, usage, refresh, flash }) {
         </div>
       )}
     </li>
+  );
+}
+
+function StorageStatus() {
+  const [s, setS] = useState(null);
+  useEffect(() => {
+    fetch("/api/storage", { cache: "no-store" }).then((r) => r.json()).then(setS).catch(() => setS({ mode: "unknown" }));
+  }, []);
+  if (!s) return <div className="card"><p className="muted">Checking storage…</p></div>;
+  return (
+    <div className="card stack8">
+      <div className="row gap8">
+        <Icon name={s.mode === "database" ? "globe" : "archive"} size={18} />
+        <h3 className="grow">{s.mode === "database" ? "Cloud database" : "Stored on this computer"}</h3>
+        <span className={`health ${s.mode === "database" ? (s.ok ? "h-good" : "h-bad") : "h-warn"}`}><span />{s.mode === "database" ? (s.ok ? "Connected" : "Not reachable") : "Local only"}</span>
+      </div>
+      {s.mode === "database" ? (
+        s.ok ? (
+          <p className="muted small">Connected to <code>{s.where}</code>: {s.guests} guests, {s.photos} photos, {s.usageEvents} usage records. Any computer running this app with the same <code>.env.local</code> sees the same data.</p>
+        ) : (
+          <p className="alert alertError">Can&apos;t reach the database: {s.error}. Check DATABASE_URL in .env.local.</p>
+        )
+      ) : (
+        <p className="muted small">
+          Everything is in the <code>data</code> folder on this laptop, with no backup. To keep it in the cloud, add <code>DATABASE_URL</code> (Supabase or Neon) to <code>.env.local</code> and run the migration in the README.
+        </p>
+      )}
+    </div>
   );
 }
 

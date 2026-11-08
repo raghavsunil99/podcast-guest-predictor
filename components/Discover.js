@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
 import { Avatar, CompanyName, StageBadge } from "./ui";
-import { BackgroundPanel, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
+import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 
 export default function Discover({ settings, api, guests, onUsageChange, providers = [], flash, openProviders }) {
   const [url, setUrl] = useState("");
@@ -50,10 +50,16 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
         setErrorInfo({ code: data.code, providerId: data.providerId });
         throw new Error(data.error || "Something went wrong.");
       }
-      setResult(data);
+      const { pdfPhoto, ...clean } = data;
+      setResult(clean);
       if (data.ai?.notice) flash?.(data.ai.notice);
-      const out = await api.save(data, url.trim());
+      const out = await api.save(clean, url.trim());
       setSaved(out ? { id: out.guest.id, duplicate: out.duplicate } : null);
+      // Profile photo found inside the PDF: use it unless you've already set a photo for this guest.
+      if (out && pdfPhoto && !out.guest.photoUrl) {
+        await api.patch(out.guest.id, { patch: { photoUrl: pdfPhoto } });
+        flash?.("Profile photo added from the PDF");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -117,7 +123,7 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
           <Icon name={pdf ? "check" : "upload"} size={18} />
           <span>
             <strong>{pdf ? pdf.name : "Or upload the profile PDF"}</strong>
-            <small>{pdf ? "Ready to study" : "LinkedIn → More → Save to PDF"}</small>
+            <small>{pdf ? "Ready to study" : "Open their LinkedIn page → ⌘P → Save as PDF (includes photo)"}</small>
           </span>
         </label>
 
@@ -250,7 +256,16 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
               )}
             </div>
 
-            <PredictionPanel acc={result.acceptance} ss={result.socialSignals} learning={guest?.learning} onOpenGuest={api.open} />
+            <PredictionPanel
+              acc={result.acceptance}
+              ss={result.socialSignals}
+              learning={guest?.learning}
+              onOpenGuest={api.open}
+              onSaveSignals={saved && (async (signals) => {
+                const ng = await api.patch(saved.id, { signals });
+                if (ng?.result) setResult(ng.result);
+              })}
+            />
 
             {result.hook && (
               <div className="hookCard">
@@ -259,6 +274,7 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
               </div>
             )}
 
+            <CareerTimeline profile={result.profile} />
             <BackgroundPanel result={result} />
 
             {result.warnings?.length > 0 && (

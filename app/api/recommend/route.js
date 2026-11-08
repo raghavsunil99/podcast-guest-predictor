@@ -1,7 +1,6 @@
 // AI recommendations: companies and profile types worth exploring, based on the guest
 // pipeline so far. The last result is cached in data/recommendations.json.
-import { promises as fs } from "fs";
-import path from "path";
+import { readDoc, writeDoc } from "@/lib/db";
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { aiErrorResponse, runAI } from "@/lib/ai/service";
 import { listGuests } from "@/lib/guestStore";
@@ -12,16 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const FILE = path.join(process.cwd(), "data", "recommendations.json");
-const FEEDBACK = path.join(process.cwd(), "data", "recommendation-feedback.json");
-
-async function readFeedback() {
-  try {
-    return JSON.parse(await fs.readFile(FEEDBACK, "utf8"));
-  } catch {
-    return {};
-  }
-}
+const readFeedback = () => readDoc("recommendation-feedback", {});
 
 const SCHEMA = {
   type: "object",
@@ -74,11 +64,8 @@ const SCHEMA = {
 
 export async function GET() {
   const feedback = await readFeedback();
-  try {
-    return Response.json({ ...JSON.parse(await fs.readFile(FILE, "utf8")), feedback });
-  } catch {
-    return Response.json({ empty: true, feedback });
-  }
+  const saved = await readDoc("recommendations", null);
+  return Response.json(saved ? { ...saved, feedback } : { empty: true, feedback });
 }
 
 export async function POST(req) {
@@ -91,7 +78,7 @@ export async function POST(req) {
   const profile = successProfile(model);
   const feedback = await readFeedback();
   const describe = (g) =>
-    `- ${g.role || "?"} at ${g.company || "?"} (${g.domain || g.industry || "?"}, ${g.experience || "? experience"}), outcome: ${outcomeOf(g)?.label || g.stage}${g.result?.hook ? `; story: ${g.result.hook}` : ""}`;
+    `- ${g.role || "?"} at ${g.company || "?"} (${g.domain || g.industry || "?"}, ${g.experience || "? experience"}${g.pastCompanies?.length ? `, previously ${g.pastCompanies.slice(0, 4).join(", ")}` : ""}${g.colleges?.length ? `, studied at ${g.colleges[0]}` : ""}${g.careerTags?.length ? `, ${g.careerTags.join(", ")}` : ""}), outcome: ${outcomeOf(g)?.label || g.stage}${g.result?.hook ? `; story: ${g.result.hook}` : ""}`;
   const yes = guests.filter((g) => outcomeOf(g)?.y === 1 && outcomeOf(g).w >= 0.6);
   const no = guests.filter((g) => outcomeOf(g)?.y === 0 && outcomeOf(g).w >= 0.6);
   const fb = (kind, val) => Object.entries(feedback).filter(([k, v]) => k.startsWith(kind + ":") && v === val).map(([k]) => k.slice(kind.length + 1));
@@ -127,8 +114,7 @@ Suggest where to find more people like the guests who said yes, at OTHER compani
       (c) => !explored.has(companyKey({ company: c.name, companyDomain: c.domain })) && !known.has(normText(c.name))
     );
     const saved = { ...data, generatedAt: new Date().toISOString(), model: out.model, provider: out.provider.name, basedOn: guests.length, outcomesUsed: yes.length + no.length };
-    await fs.mkdir(path.dirname(FILE), { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(saved));
+    await writeDoc("recommendations", saved);
     return Response.json({ ...saved, feedback, notice: out.notice });
   } catch (err) {
     return aiErrorResponse(err);

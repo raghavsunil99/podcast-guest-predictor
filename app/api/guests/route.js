@@ -1,4 +1,5 @@
-import { enrichCompanies, importLegacy, listGuests, upsertFromResult } from "@/lib/guestStore";
+import { convertCareers, enrichCompanies, importLegacy, listGuests, upsertFromResult } from "@/lib/guestStore";
+import { CAREER_SWITCH_SCHEMA, EDUCATION_SCHEMA, EXPERIENCE_SCHEMA } from "@/lib/career";
 import { decorate } from "@/lib/photos";
 import { runAI } from "@/lib/ai/service";
 
@@ -49,6 +50,36 @@ export async function POST(req) {
       console.warn("[enrich]", err.message);
       return Response.json({ updated: 0, error: "lookup failed" });
     }
+  }
+  if (body.action === "career") {
+    const out = await convertCareers(async (batch) => {
+      const text = batch
+        .map((g) => {
+          const p = g.result.profile;
+          return `### GUEST ${g.id}\nName: ${p.fullName}\nCurrent: ${p.currentRole} at ${p.currentCompany}\nTotal experience: ${p.totalExperience}\nCareer path:\n${(p.careerPath || []).map((c) => `- ${c}`).join("\n") || "- (none)"}\nEducation:\n${(p.education || []).map((e) => `- ${e.institution} | ${e.degree} | ${e.place} | ${e.years}`).join("\n") || "- (none)"}\nAbout: ${p.aboutSummary || ""}`;
+        })
+        .join("\n\n");
+      const res = await runAI({
+        kind: "career",
+        parts: [{ text: `Convert each guest's career path and education into the structured format. Use ONLY the facts given: keep dates exactly as written (years only if no month), group roles at the same company, and mark the current role's end as "Present". Do not invent jobs, dates or degrees.\n\n${text}` }],
+        schema: {
+          type: "object",
+          properties: {
+            guests: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { id: { type: "string" }, experience: EXPERIENCE_SCHEMA, education: EDUCATION_SCHEMA, careerSwitch: CAREER_SWITCH_SCHEMA },
+                required: ["id", "experience", "education", "careerSwitch"],
+              },
+            },
+          },
+          required: ["guests"],
+        },
+      });
+      return res.data.guests || [];
+    });
+    return Response.json(out);
   }
   return Response.json({ error: "Unknown action." }, { status: 400 });
 }

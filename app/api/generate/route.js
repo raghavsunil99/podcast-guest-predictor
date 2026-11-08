@@ -1,5 +1,8 @@
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { aiErrorResponse, runAI } from "@/lib/ai/service";
+import { extractProfilePhoto } from "@/lib/pdfPhoto";
+import { scoreAcceptance } from "@/lib/scoring";
+import { CAREER_SWITCH_SCHEMA, EDUCATION_SCHEMA, EXPERIENCE_SCHEMA } from "@/lib/career";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -27,20 +30,9 @@ const OUTPUT_SCHEMA = {
           type: "string",
           description: "City they work/live in now, normalized (e.g. 'Bengaluru', 'Hyderabad', 'Chennai', 'Pune'); 'Unknown' if not stated",
         },
-        education: {
-          type: "array",
-          description: "Every college/university/school listed, most recent first",
-          items: {
-            type: "object",
-            properties: {
-              institution: { type: "string" },
-              degree: { type: "string", description: "e.g. 'B.Tech, Electronics and Communication'; '' if not stated" },
-              place: { type: "string", description: "City and state where the institution is, e.g. 'Kakinada, Andhra Pradesh'. Use well-known knowledge of the institution if not stated." },
-              years: { type: "string", description: "e.g. '2013–2017'; '' if not stated" },
-            },
-            required: ["institution", "degree", "place", "years"],
-          },
-        },
+        education: EDUCATION_SCHEMA,
+        experience: EXPERIENCE_SCHEMA,
+        careerSwitch: CAREER_SWITCH_SCHEMA,
         totalExperience: { type: "string", description: "e.g. '6+ years'; 'Unknown' if not derivable" },
         careerPath: {
           type: "array",
@@ -51,7 +43,7 @@ const OUTPUT_SCHEMA = {
         domain: { type: "string" },
         aboutSummary: { type: "string" },
       },
-      required: ["fullName", "firstName", "currentRole", "currentCompany", "companyDomain", "industry", "photoUrl", "location", "currentCity", "education", "totalExperience", "careerPath", "skills", "domain", "aboutSummary"],
+      required: ["fullName", "firstName", "currentRole", "currentCompany", "companyDomain", "industry", "photoUrl", "location", "currentCity", "education", "experience", "careerSwitch", "totalExperience", "careerPath", "skills", "domain", "aboutSummary"],
     },
     background: {
       type: "object",
@@ -135,7 +127,7 @@ function systemInstruction(s) {
   return `You write podcast guest invitations for ${s.senderName}, ${s.senderRole}, who hosts the ${s.podcastName}, where ${s.podcastAbout}. The format is ${s.format}.
 
 Your job:
-1. Study the guest's profile and extract the facts requested in the schema.
+1. Study the guest's profile and extract the facts requested in the schema. Capture the FULL work history (every company, every role with its dates, promotions as separate roles under the same company) and every education entry. Copy dates exactly as shown; never invent months or years.
 2. Pick THE HOOK: the single most interesting, podcast-worthy part of their journey (a career switch, service → product company move, non-tech → tech move, leadership growth, a notable achievement). Be specific: name the companies and roles.
 3. Fill the template the user provides. Keep its structure, tone and fixed text. Replace only the {placeholders} with real details. Discussion topics must fit this guest's actual background.
 4. Background guess: estimate the guest's native language and home region from these signals, strongest first:
@@ -172,30 +164,6 @@ Rules:
 - Plain text only in messages (no markdown, no asterisks).`;
 }
 
-// The overall score is computed here, from Gemini's per-criterion scores, so the weighting is
-// fixed and visible in the UI rather than a number the model makes up.
-const CRITERIA = [
-  { id: "audience", label: "LinkedIn audience", weight: 20, what: "Followers and connections" },
-  { id: "posting", label: "Posting activity", weight: 20, what: "How often they post or share on LinkedIn" },
-  { id: "speaking", label: "Public speaking & content", weight: 20, what: "Talks, webinars, podcasts, YouTube, blogs" },
-  { id: "mentoring", label: "Mentoring & helping students", weight: 15, what: "Topmate/ADPList, teaching, community work" },
-  { id: "story", label: "Story fit for students", weight: 15, what: "How relatable and inspiring their journey is" },
-  { id: "accessibility", label: "Reachability", weight: 10, what: "Seniority, availability, recent job change" },
-];
-
-function scoreAcceptance(data) {
-  const acc = data.acceptance || {};
-  const given = Object.fromEntries((acc.criteria || []).map((c) => [c.id, c]));
-  acc.criteria = CRITERIA.map((c) => {
-    const g = given[c.id] || { score: 5, evidence: "Not shown in the profile", found: false };
-    const score = Math.max(0, Math.min(10, Math.round(Number(g.score) || 0)));
-    return { ...c, score, evidence: g.evidence, found: g.found !== false, points: Math.round((score / 10) * c.weight * 10) / 10 };
-  });
-  acc.score = Math.round(acc.criteria.reduce((t, c) => t + c.points, 0));
-  acc.likelihood = acc.score >= 65 ? "High" : acc.score >= 45 ? "Medium" : "Low";
-  acc.dataCoverage = acc.criteria.filter((c) => c.found).length;
-  data.acceptance = acc;
-}
 
 async function researchFromUrl(url, providerId) {
   const out = await runAI({
@@ -252,12 +220,14 @@ export async function POST(req) {
   }
 
   const parts = [];
+  let pdfPhoto = null;
   const sourceNotes = [];
 
   try {
     if (hasPdf) {
       const buf = Buffer.from(await pdf.arrayBuffer());
       parts.push({ pdf: buf.toString("base64") });
+      pdfPhoto = extractProfilePhoto(buf); // browser-saved LinkedIn pages include the profile photo
       sourceNotes.push("Profile PDF attached above.");
     }
     if (profileText) {
@@ -319,6 +289,7 @@ ${settings.connectionTemplate}
     if ((data.connectionNote || "").length > 300) {
       data.warnings.push(`Connection note is ${data.connectionNote.length} characters; LinkedIn allows 300. Shorten it before sending.`);
     }
+    if (pdfPhoto) data.pdfPhoto = pdfPhoto.dataUrl;
     data.model = out.model;
     data.ai = { provider: out.provider.name, providerId: out.provider.id, model: out.model, notice: out.notice };
     data.tokensUsed = out.tokens + researchTokens;
