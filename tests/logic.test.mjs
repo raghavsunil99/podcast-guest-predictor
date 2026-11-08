@@ -322,3 +322,15 @@ test("reset countdown is within one day", () => {
   const ms = msUntilPacificMidnight();
   assert.ok(ms > 0 && ms <= 86400000);
 });
+
+// ---------- Company grouping ----------
+import { groupCompanies } from "../lib/crm.js";
+
+test("one company even with different or invalid websites", () => {
+  const g = (id, company, companyDomain) => ({ id, name: id, company, companyDomain, stage: "Discovered" });
+  const out = groupCompanies([
+    g("a", "Adobe", "adobe.com"), g("b", "Adobe", "technology"), g("c", "Adobe Inc", ""),
+    g("d", "American Airlines", "americanairlines.in"), g("e", "American Airlines", "americanairlines.com"),
+  ]);
+  assert.deepEqual(out.map((c) => [c.name, c.guests, c.domain]), [["Adobe", 3, "adobe.com"], ["American Airlines", 2, "americanairlines.com"]]);
+});
