@@ -94,8 +94,8 @@ export default function Archive({ guests, api }) {
                 <span className="epTileNo">EP {String(no).padStart(2, "0")}</span>
                 <button className="iconBtn sm epTileEdit" title="Edit episode" onClick={(e) => { e.stopPropagation(); setEditing(g); }}><Icon name="edit" size={12} /></button>
                 <GuestPhoto g={g} size={64} ring />
-                <strong className="clamp2">{g.name}</strong>
-                <span className="muted tiny ellipsis">{g.company}</span>
+                <strong className="clamp2 epTileName">{g.name}</strong>
+                <span className="epTileCo"><CompanyName name={g.company} domain={g.companyDomain} size={16} /></span>
                 <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : ep.recordedAt ? fmtDate(ep.recordedAt) : "Recorded"}</span>
               </div>
             );
@@ -126,9 +126,9 @@ export default function Archive({ guests, api }) {
                   Recorded {ep.recordedAt ? fmtDate(ep.recordedAt) : "date not set"}
                   {ep.published && ep.publishedAt ? ` · Published ${fmtDate(ep.publishedAt)}` : ""}
                 </span>
-                <h3>{ep.title || `Episode with ${g.name}`}</h3>
-                {!ep.title && g.result?.hook && <p className="muted small">{g.result.hook.charAt(0).toUpperCase() + g.result.hook.slice(1)}</p>}
-                <p className="epGuest"><strong>{g.name}</strong> · {g.role}</p>
+                <h3 className="epTitle">{ep.title || `Episode with ${g.name}`}</h3>
+                <p className="muted small epHook">{!ep.title && g.result?.hook ? g.result.hook.charAt(0).toUpperCase() + g.result.hook.slice(1) : ""}</p>
+                <p className="epGuest" title={`${g.name} · ${g.role}`}><strong>{g.name}</strong> · {g.role}</p>
                 <CompanyName name={g.company} domain={g.companyDomain} />
                 <div className="row gap8 epActions wrap" onClick={(e) => e.stopPropagation()}>
                   {links.length ? (

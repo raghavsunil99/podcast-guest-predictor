@@ -1108,3 +1108,17 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .ttList { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
 .ttList li { display: flex; gap: 10px; align-items: center; font-size: 13px; }
 .ttFit { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-ink); }
+/* Recorded cards: every row lines up across cards */
+.archiveGrid { align-items: stretch; }
+.episode { display: flex; flex-direction: column; }
+.epBody { flex: 1; }
+.epTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: calc(2 * 1.35em); }
+.epHook { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: calc(3 * 1.5em); line-height: 1.5; margin: 0; }
+.epGuest { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.epActions { margin-top: auto; padding-top: 6px; }
+/* Grid tiles: logo + company, dates aligned at the bottom */
+.epTile { justify-content: flex-start; }
+.epTileName { min-height: calc(2 * 1.3em); display: -webkit-box; align-items: center; }
+.epTileCo { max-width: 100%; display: flex; justify-content: center; font-size: 12.5px; color: var(--text-2); }
+.epTileCo > * { max-width: 100%; }
+.epTile .pubPill { margin-top: auto; }
