@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
+import PastCompanies from "./PastCompanies";
 import EpisodeForm from "./EpisodeForm";
 import { resizePhoto } from "./GuestPhoto";
 import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo } from "./ui";
@@ -72,6 +73,7 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
               {g.city && <span className="metaItem">{g.city}</span>}
               {g.language && <span className="metaItem">{g.language}</span>}
             </div>
+            <div className="drawerPast"><PastCompanies g={g} max={4} /></div>
           </div>
           {g.linkedinUrl && (
             <a className="iconBtn liBtn" href={g.linkedinUrl} target="_blank" rel="noreferrer" title="Open LinkedIn profile" aria-label="Open LinkedIn profile">

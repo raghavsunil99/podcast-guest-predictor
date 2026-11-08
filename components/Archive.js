@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Icon from "./icons";
+import PastCompanies from "./PastCompanies";
 import GuestPhoto from "./GuestPhoto";
 import { CompanyName, Drawer, Empty, ViewSwitch, fmtDate, useViewPref } from "./ui";
 import { exportCSV } from "./Guests";
@@ -70,7 +71,7 @@ export default function Archive({ guests, api }) {
                   <strong className="ellipsis">{ep.title || `Episode with ${g.name}`}</strong>
                   <span className="muted small ellipsis">{g.name} · {g.role}</span>
                 </div>
-                <span className="epRowCo hideSm"><CompanyName name={g.company} domain={g.companyDomain} /></span>
+                <span className="epRowCo hideSm"><CompanyName name={g.company} domain={g.companyDomain} /><PastCompanies g={g} variant="logos" size={14} /></span>
                 <span className="muted small hideSm epRowDate">{ep.recordedAt ? fmtDate(ep.recordedAt) : "No date"}</span>
                 <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : "Not published"}</span>
                 <span className="epRowLinks" onClick={(e) => e.stopPropagation()}>
@@ -96,6 +97,7 @@ export default function Archive({ guests, api }) {
                 <GuestPhoto g={g} size={64} ring />
                 <strong className="clamp2 epTileName">{g.name}</strong>
                 <span className="epTileCo"><CompanyName name={g.company} domain={g.companyDomain} size={16} /></span>
+                <span className="epTilePast"><PastCompanies g={g} variant="logos" size={15} /></span>
                 <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : ep.recordedAt ? fmtDate(ep.recordedAt) : "Recorded"}</span>
               </div>
             );
@@ -130,6 +132,7 @@ export default function Archive({ guests, api }) {
                 <p className="muted small epHook">{!ep.title && g.result?.hook ? g.result.hook.charAt(0).toUpperCase() + g.result.hook.slice(1) : ""}</p>
                 <p className="epGuest" title={`${g.name} · ${g.role}`}><strong>{g.name}</strong> · {g.role}</p>
                 <CompanyName name={g.company} domain={g.companyDomain} />
+                <div className="epPast"><PastCompanies g={g} max={2} /></div>
                 <div className="row gap8 epActions wrap" onClick={(e) => e.stopPropagation()}>
                   {links.length ? (
                     links.map((l) => (

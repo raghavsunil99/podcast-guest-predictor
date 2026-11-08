@@ -1122,3 +1122,18 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .epTileCo { max-width: 100%; display: flex; justify-content: center; font-size: 12.5px; color: var(--text-2); }
 .epTileCo > * { max-width: 100%; }
 .epTile .pubPill { margin-top: auto; }
+/* Previous companies */
+.pastRow { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); min-width: 0; }
+.pastLbl { font-size: 11px; color: var(--muted); }
+.pastItem { display: inline-flex; align-items: center; gap: 5px; max-width: 160px; }
+.pastMore { font-size: 11px; color: var(--muted); }
+.pastLogos { display: inline-flex; align-items: center; gap: 4px; }
+.pastLogos .pastLbl { font-size: 10.5px; }
+.epPast { min-height: 20px; display: flex; align-items: center; }
+.epTilePast { min-height: 18px; display: flex; justify-content: center; }
+.epRowCo { display: flex; flex-direction: column; gap: 3px; }
+.coCell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.drawerPast { margin-top: 6px; }
+.pastRow { flex-wrap: nowrap; overflow: hidden; }
+.pastItem { flex: 0 1 auto; min-width: 0; }
+.pastRow .pastLbl, .pastRow .pastMore { flex-shrink: 0; }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Icon from "./icons";
+import PastCompanies from "./PastCompanies";
 import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyName, Empty, ScoreRing, StageBadge, TierBadge, ViewSwitch, timeAgo, useViewPref } from "./ui";
 import { ALL_STAGES, findDuplicates, normText, pickPrimary, tierOf, toCSV } from "@/lib/crm";
@@ -251,6 +252,7 @@ export default function Guests({ guests, api, initialFilter }) {
                   <span className="muted small clamp2">{g.role || "—"}</span>
                 </div>
                 <CompanyName name={g.company} domain={g.companyDomain} />
+                <div className="epPast"><PastCompanies g={g} max={2} /></div>
                 <div className="gcMeta muted tiny">
                   {[g.city, g.language].filter(Boolean).join(" · ") || "Location unknown"}
                 </div>
@@ -294,7 +296,7 @@ export default function Guests({ guests, api, initialFilter }) {
                     </div>
                   </div>
                 </td>
-                <td><CompanyName name={g.company} domain={g.companyDomain} /></td>
+                <td><div className="coCell"><CompanyName name={g.company} domain={g.companyDomain} /><PastCompanies g={g} variant="logos" size={14} /></div></td>
                 <td className="hideSm">{g.city || <span className="muted">—</span>}</td>
                 <td className="hideSm">{g.language || <span className="muted">—</span>}</td>
                 <td>

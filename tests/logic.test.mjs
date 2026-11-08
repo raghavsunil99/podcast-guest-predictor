@@ -381,3 +381,9 @@ test("pinned targets move forward when guests from them appear", () => {
   ], guests);
   assert.deepEqual(out.map((t) => [t.status, t.progress.found]), [["Recorded", 1], ["Found guests", 1], ["Searching", 0]]);
 });
+
+test("previous companies: newest first, no repeats, no current company, no job titles", async () => {
+  const { previousCompanies } = await import("../lib/crm.js");
+  const g = { company: "Coactive AI", pastCompanies: ["Nuro", "Google", "Google LLC", "Software Engineer II", "Coactive AI", "MIT Media Lab"] };
+  assert.deepEqual(previousCompanies(g), ["Nuro", "Google", "MIT Media Lab"]);
+});
