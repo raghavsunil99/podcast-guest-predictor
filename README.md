@@ -29,7 +29,7 @@ Built by **Raghavendra** · Next.js · Gemini / Claude / OpenAI / DeepSeek
 | **✉️ Ready-to-send messages** | Invitation, LinkedIn connection note (300 chars), WhatsApp and follow-up. |
 | **📋 Pipeline CRM** | Discovered → Shortlisted → Contacted → Responded → Accepted → Recorded, plus Contact later / Not responded / Rejected. Notes, history, follow-up reminders. |
 | **📊 Analytics & recommendations** | Funnel, conversion, company breakdown, next best guest, similar profiles, AI ideas for companies to explore. |
-| **🔌 Multiple AI providers** | Automatic fallback on rate limits; an invalid key stops instead of silently switching. Keys encrypted (AES-256-GCM). |
+| **🔌 Multiple AI providers** | Gemini, Claude, OpenAI, DeepSeek, any OpenAI-compatible API, and **free local models via Ollama**. Automatic fallback on rate limits; an invalid key stops instead of silently switching. Keys encrypted (AES-256-GCM). |
 | **☁️ Local or cloud** | JSON files by default, or PostgreSQL (Supabase / Neon) via `DATABASE_URL`. |
 | **🌗 Light / Dark / System** | |
 
@@ -57,10 +57,20 @@ npm run dev                         # http://localhost:3000
 
 Best input: open the guest's LinkedIn page → ⌘P → **Save as PDF** (includes their photo), or paste the full profile text.
 
+## 🖥️ Free local AI (Ollama)
+
+Never run out of AI credits: install [Ollama](https://ollama.com), then
+
+```bash
+ollama pull qwen3:8b
+```
+
+and add **Ollama (local, free)** in Settings → AI providers. Keep it last in the priority list to take over when cloud quotas run out, or make it the default to use no cloud credits at all. On an Apple M5 with 16 GB, a full profile study takes about 2 minutes (cloud: ~10 s). PDFs are sent to local models as extracted text.
+
 ## 🧪 Tests
 
 ```bash
-npm test   # 37 tests, ~1s, no API keys needed
+npm test   # 47 tests, ~1s, no API keys needed
 ```
 
 ## 🎭 Demo data

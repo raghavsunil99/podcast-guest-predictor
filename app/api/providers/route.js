@@ -11,7 +11,7 @@ export async function GET() {
     providers: providers.map((p) => ({ ...publicView(p), status: status[p.id] || null })),
     types: Object.values(ADAPTERS).map((a) => ({
       type: a.type, label: a.label, defaultModel: a.defaultModel, suggestedModels: a.suggestedModels,
-      capabilities: a.capabilities, keyUrl: a.keyUrl, needsBaseUrl: a.type === "compatible", defaultBaseUrl: a.defaultBaseUrl || "",
+      capabilities: a.capabilities, keyUrl: a.keyUrl, needsBaseUrl: a.type === "compatible", defaultBaseUrl: a.defaultBaseUrl || "", needsKey: a.needsKey !== false,
     })),
   });
 }

@@ -13,12 +13,44 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let server, base, tmp, registry, service, usage;
+let lastOllamaBody = null;
+
+// A minimal one-page PDF containing the given text (valid xref offsets).
+function makePdf(text) {
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    null,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  const stream = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
+  objs[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  let out = "%PDF-1.4\n";
+  const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("");
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(out, "latin1");
+}
 
 // Fake provider: /ok answers with JSON, /429 is rate limited, /401 rejects the key, /500 is down.
 function startMock() {
   return new Promise((resolve) => {
     server = http.createServer((req, res) => {
       const mode = req.url.split("/")[1];
+      if (mode === "ollama") {
+        let body = "";
+        req.on("data", (c) => (body += c));
+        req.on("end", () => {
+          res.writeHead(200, { "content-type": "application/json" });
+          if (req.url.endsWith("/api/tags")) return res.end(JSON.stringify({ models: [{ name: "qwen3:8b" }] }));
+          lastOllamaBody = JSON.parse(body || "{}");
+          res.end(JSON.stringify({ message: { role: "assistant", content: '{"ok": true}' }, prompt_eval_count: 40, eval_count: 6 }));
+        });
+        return;
+      }
       const send = (code, body) => {
         res.writeHead(code, { "content-type": "application/json", "x-ratelimit-remaining-requests": "42" });
         res.end(JSON.stringify(body));
@@ -111,7 +143,7 @@ test("when every provider is unavailable the error lists each one", async () => 
 
 test("providers that can't read PDFs are skipped for PDF requests", async () => {
   await add("TextOnly", "ok");
-  await assert.rejects(ask({ needs: { pdf: true } }), (err) => err.code === "none" && /can't read PDFs/.test(err.message));
+  await assert.rejects(ask({ needs: { pdf: true } }), (err) => err.code === "none" && /can't read this PDF/.test(err.message));
 });
 
 test("disabled providers are not used", async () => {
@@ -157,4 +189,48 @@ test("daily limit alerts fire at the warning threshold", async () => {
   await new Promise((r) => setTimeout(r, 50));
   const u = await usage.getUsageSummary(await registry.getProviders());
   assert.ok(u.alerts.some((a) => a.providerId === p.id));
+});
+
+// ---------- Local models (Ollama) and PDF text ----------
+const addOllama = (name, url = `${base}/ollama`) => registry.addProvider({ type: "ollama", name, baseUrl: url, model: "qwen3:8b" });
+
+test("Ollama works without an API key and sends the JSON schema", async () => {
+  const p = await addOllama("Local");
+  assert.ok(!("keyEnc" in p));
+  assert.equal(registry.publicView(p).hasKey, true);
+  const out = await ask();
+  assert.equal(out.provider.name, "Local");
+  assert.deepEqual(out.data, { ok: true });
+  assert.equal(lastOllamaBody.format.type, "object", "schema passed as format");
+  assert.equal(lastOllamaBody.think, false);
+  assert.equal(out.tokens, 46);
+});
+
+test("cloud rate limit falls back to the local model", async () => {
+  await add("Cloud", "429");
+  await addOllama("Local");
+  const out = await ask();
+  assert.equal(out.provider.name, "Local");
+  assert.match(out.notice, /Cloud hit its rate limit/);
+});
+
+test("Ollama not running is treated as unavailable, not as a bad key", async () => {
+  await addOllama("Offline", "http://127.0.0.1:9");
+  await add("Healthy", "ok");
+  assert.equal((await ask()).provider.name, "Healthy");
+});
+
+test("local models receive the PDF's extracted text", async () => {
+  await addOllama("Local");
+  const pdf = makePdf("Ravi Kumar Senior Engineer at Example Corp").toString("base64");
+  const out = await ask({ parts: [{ pdf }, { text: "Study this profile" }], needs: { pdf: true } });
+  assert.equal(out.provider.name, "Local");
+  const sent = lastOllamaBody.messages.at(-1).content;
+  assert.match(sent, /Ravi Kumar Senior Engineer at Example Corp/);
+  assert.match(sent, /Study this profile/);
+});
+
+test("Ollama lists installed models", async () => {
+  const { ADAPTERS } = registry;
+  assert.deepEqual(await ADAPTERS.ollama.listModels({ baseUrl: `${base}/ollama` }), ["qwen3:8b"]);
 });

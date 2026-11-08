@@ -2,10 +2,11 @@ import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { aiErrorResponse, runAI } from "@/lib/ai/service";
 import { extractProfilePhoto } from "@/lib/pdfPhoto";
 import { scoreAcceptance } from "@/lib/scoring";
+import { normalizeResult } from "@/lib/normalize";
 import { CAREER_SWITCH_SCHEMA, EDUCATION_SCHEMA, EXPERIENCE_SCHEMA } from "@/lib/career";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 600; // local models can take several minutes
 
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
 
@@ -282,6 +283,7 @@ ${settings.connectionTemplate}
 
     const data = out.data;
     data.warnings = Array.isArray(data.warnings) ? data.warnings : [];
+    normalizeResult(data, honorificOverride);
     scoreAcceptance(data);
     if (usedWebResearch) {
       data.warnings.unshift("Profile details came from public web search, not the profile itself. Double-check them before sending.");

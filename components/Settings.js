@@ -88,7 +88,7 @@ function ProvidersPanel({ providers, refresh, usage, flash }) {
           <ProviderCard key={p.id} p={p} index={i} count={providers.length} usage={usage?.byProvider?.[p.id]} refresh={refresh} flash={flash} />
         ))}
       </ol>
-      <p className="muted tiny">Profile PDFs need Gemini, OpenAI or Claude. Researching a bare LinkedIn URL needs Gemini (web search). Other providers are skipped for those requests.</p>
+      <p className="muted tiny">Gemini, OpenAI and Claude read PDFs directly; other providers (including local Ollama models) get the PDF&apos;s extracted text. Researching a bare LinkedIn URL needs Gemini (web search).</p>
     </div>
   );
 }
@@ -124,23 +124,29 @@ function AddProvider({ types, onDone, flash }) {
           </select>
         </label>
         <label className="field"><span>Display name</span><input value={f.name} onChange={set("name")} placeholder={t?.label} /></label>
-        <label className="field span2">
-          <span>API key {t?.keyUrl && <a className="tiny" href={t.keyUrl} target="_blank" rel="noreferrer">Get a key ↗</a>}</span>
-          <div className="inputIcon"><Icon name="key" size={16} /><input type="password" autoComplete="off" value={f.apiKey} onChange={set("apiKey")} placeholder="Stored encrypted on this computer" required /></div>
-        </label>
+        {t?.needsKey === false ? (
+          <div className="span2 alert alertOk small">
+            Runs on this computer: free, no API key, no usage limits. Install <a href={t.keyUrl} target="_blank" rel="noreferrer">Ollama</a>, then download a model, e.g. <code>ollama pull qwen3:8b</code>. Tip: keep it last in the priority list so it takes over when cloud quotas run out.
+          </div>
+        ) : (
+          <label className="field span2">
+            <span>API key {t?.keyUrl && <a className="tiny" href={t.keyUrl} target="_blank" rel="noreferrer">Get a key ↗</a>}</span>
+            <div className="inputIcon"><Icon name="key" size={16} /><input type="password" autoComplete="off" value={f.apiKey} onChange={set("apiKey")} placeholder="Stored encrypted on this computer" required /></div>
+          </label>
+        )}
         <label className="field">
           <span>Model</span>
           <input list={`models-${f.type}`} value={f.model} onChange={set("model")} placeholder={t?.defaultModel || "model id"} required={!t?.defaultModel} />
           <datalist id={`models-${f.type}`}>{(t?.suggestedModels || []).map((m) => <option key={m} value={m} />)}</datalist>
         </label>
         <label className="field"><span>Daily request limit <em>optional</em></span><input type="number" min="1" value={f.dailyLimit} onChange={set("dailyLimit")} placeholder="for alerts" /></label>
-        {(t?.needsBaseUrl || f.type === "deepseek") && (
+        {(t?.needsBaseUrl || f.type === "deepseek" || f.type === "ollama") && (
           <label className="field span2"><span>API base URL</span><input value={f.baseUrl} onChange={set("baseUrl")} placeholder={t?.defaultBaseUrl || "https://openrouter.ai/api/v1"} required={t?.needsBaseUrl} /></label>
         )}
       </div>
       {t && (
         <p className="muted tiny">
-          Supports: {t.capabilities.pdf ? "PDF profiles" : "text profiles only"}{t.capabilities.web ? ", URL research" : ""}.
+          Supports: {t.capabilities.pdf ? "PDF profiles" : t.capabilities.pdfText || t.capabilities.schema ? "PDF profiles (as extracted text)" : "text profiles only"}{t.capabilities.web ? ", URL research" : ""}{t.capabilities.local ? ". Slower than cloud: about 15–40 s per profile" : ""}.
         </p>
       )}
       {err && <div className="alert alertError">{err}</div>}
@@ -249,6 +255,9 @@ function ProviderCard({ p, index, count, usage, refresh, flash }) {
             <span>Alert at</span>
             <div className="row gap8"><input type="number" min="1" max="100" value={edit.warnAt} onChange={(e) => setEdit({ ...edit, warnAt: e.target.value })} /><span className="muted small">% of limit</span></div>
           </label>
+          {p.needsKey === false ? (
+            <p className="span2 muted small">No API key needed: runs locally{p.baseUrl ? ` at ${p.baseUrl}` : ""}.</p>
+          ) : (
           <label className="field span2">
             <span>
               API key{" "}
@@ -258,6 +267,7 @@ function ProviderCard({ p, index, count, usage, refresh, flash }) {
             </span>
             <div className="inputIcon"><Icon name="key" size={16} /><input type="password" autoComplete="off" value={edit.apiKey} onChange={(e) => setEdit({ ...edit, apiKey: e.target.value })} placeholder="Paste a new key to replace it" /></div>
           </label>
+          )}
         </div>
         <div className="row gap8 wrap">
           <button

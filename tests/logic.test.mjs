@@ -7,6 +7,8 @@ import { applyStage, analytics, findDuplicates, followUpsDue, guestFromResult, m
 import { analyzeCareer, fmtMonths, isService, isBigTech } from "../lib/career.js";
 import { buildModel, applyLearning, nextBest, similarProfiles, outcomeOf } from "../lib/learning.js";
 import { parseJSON, strictSchema } from "../lib/ai/schema.js";
+import { trimLinkedInText } from "../lib/pdfText.js";
+import { normalizeResult, collegeType, cleanRole } from "../lib/normalize.js";
 
 // ---------- helpers ----------
 let n = 0;
@@ -248,4 +250,49 @@ test("parseJSON handles fenced and surrounded JSON", () => {
   assert.deepEqual(parseJSON('```json\n{"ok":true}\n```'), { ok: true });
   assert.deepEqual(parseJSON('Here you go: {"ok": 1} thanks'), { ok: 1 });
   assert.throws(() => parseJSON("no json here"));
+});
+
+test("LinkedIn PDF text: sidebar about other people is removed", () => {
+  const main = "Asha Rao\nEngineer at Acme\n" + "Experience details. ".repeat(40);
+  const out = trimLinkedInText(main + "More profiles for you\nSomeone Else\nPeople you may know\nX");
+  assert.equal(out, main.trim());
+  assert.equal(trimLinkedInText("short text"), "short text");
+});
+
+test("normalize: college type from the name", () => {
+  assert.equal(collegeType("Indian Institute of Technology, Patna", "BITS"), "IIT");
+  assert.equal(collegeType("International Institute of Information Technology Hyderabad", "BITS"), "IIIT");
+  assert.equal(collegeType("NIT Warangal", "Other"), "NIT");
+  assert.equal(collegeType("JNTU Kakinada", "State university / govt college"), "State university / govt college");
+  assert.equal(collegeType("Some College", "BITS"), "Other", "wrong elite label removed");
+});
+
+test("normalize: role without repeated company", () => {
+  assert.equal(cleanRole("Software Engineer 2 @ Microsoft @ Microsoft", "Microsoft"), "Software Engineer 2");
+  assert.equal(cleanRole("Engineer at Acme", "Acme"), "Engineer");
+  assert.equal(cleanRole("Head of Product", "Acme"), "Head of Product");
+});
+
+test("normalize: missing honorific added to every message for Telugu/Hindi speakers", () => {
+  const d = normalizeResult({
+    profile: { firstName: "Adithya" },
+    background: { nativeLanguage: "Telugu", confidence: "High" },
+    honorific: "",
+    fullMessage: "Hi Adithya,\n\nHope you're well",
+    connectionNote: "Hi Adithya, I'm Raghavendra",
+    whatsappMessage: "Namaskaram Adithya, quick one",
+    followUpMessage: "Hi Adithya garu, following up",
+  }, "auto");
+  assert.equal(d.honorific, "garu");
+  assert.ok(d.fullMessage.startsWith("Hi Adithya garu,"));
+  assert.ok(d.connectionNote.startsWith("Hi Adithya garu,"));
+  assert.ok(d.whatsappMessage.startsWith("Namaskaram Adithya garu,"));
+  assert.ok(d.followUpMessage.startsWith("Hi Adithya garu, following"), "not doubled");
+});
+
+test("normalize: honorific respects override and low confidence", () => {
+  const base = () => ({ profile: { firstName: "Ravi" }, background: { nativeLanguage: "Telugu", confidence: "Low" }, honorific: "", fullMessage: "Hi Ravi," });
+  assert.equal(normalizeResult(base(), "auto").honorific, "");
+  const none = base(); none.background.confidence = "High";
+  assert.equal(normalizeResult(none, "none").fullMessage, "Hi Ravi,");
 });
