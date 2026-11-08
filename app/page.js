@@ -326,10 +326,12 @@ function SideQuota({ usage, providers, onOpen }) {
       id: p.id,
       name: p.name,
       models: list.map((m) => {
-        const pct = m.exhausted ? 100 : m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
-        const tone = m.exhausted || pct >= 90 ? "danger" : pct >= (p.warnAt || 80) ? "warn" : "";
-        const text = m.exhausted ? `${m.used} used · none left` : m.limit ? `${m.used} used · ${m.left} left` : `${m.used} used`;
-        return { model: m.model, main: m.model === p.model, text, tone, pct, showBar: !!(m.limit || m.exhausted) };
+        // Only a limit you entered drives the colour; Google's own quota errors aren't shown as "used up".
+        const left = m.limit ? Math.max(0, m.limit - m.used) : null;
+        const pct = m.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
+        const tone = pct >= 90 ? "danger" : pct >= (p.warnAt || 80) ? "warn" : "";
+        const text = m.limit ? `${m.used} used · ${left} left` : `${m.used} used · limit unknown`;
+        return { model: m.model, main: m.model === p.model, text, tone, pct, showBar: !!m.limit };
       }),
     };
   });

@@ -520,17 +520,18 @@ function QuotaRows({ p, models, onSetLimit }) {
   return (
     <div className="quotaRows">
       {models.map((m) => {
-        const pct = m.exhausted ? 100 : m.limit ? Math.min(100, Math.round((m.used / m.limit) * 100)) : 0;
-        const tone = m.exhausted || pct >= 90 ? " danger" : pct >= (p.warnAt || 80) ? " warn" : "";
+        const left = m.limit ? Math.max(0, m.limit - m.used) : null;
+        const pct = m.limit ? Math.min(100, Math.round((m.used / m.limit) * 100)) : 0;
+        const tone = pct >= 90 ? " danger" : pct >= (p.warnAt || 80) ? " warn" : "";
         return (
           <div key={m.model} className="quotaRow">
             <div className="quotaTop">
               <span className="quotaModel">{m.model}{m.model === p.model ? <em> main</em> : <em> backup</em>}</span>
               <span className={`quotaLeft${tone}`}>
-                {m.exhausted ? "Used up today" : m.limit ? `${fmt(m.left)} left` : "Limit not set"}
+                {m.limit ? `${fmt(left)} left` : "Limit unknown"}
               </span>
             </div>
-            {(m.limit || m.exhausted) && <div className={`meter${tone}`}><div style={{ width: `${pct}%` }} /></div>}
+            {m.limit && <div className={`meter${tone}`}><div style={{ width: `${pct}%` }} /></div>}
             <div className="quotaSub">
               <span>{fmt(m.used)} used{m.limit ? ` of ${fmt(m.limit)}` : ""} · {fmt(m.tokens)} tokens</span>
               {editing === m.model ? (
