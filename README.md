@@ -24,6 +24,18 @@ Built by Raghavendra. Current version: **2.2**.
 - **1.1**: new "Studio" design (ink header, coral accent, Instrument Serif + Plus Jakarta Sans), no Entri brand assets, "Built by Raghav" footer and version label.
 - **1.0**: first release with the Entri brand design. Restore it with `git checkout v1.0` (back to the latest with `git checkout main`).
 
+## Tests
+
+```bash
+npm test
+```
+
+37 automated tests, about one second, no API keys or quota needed:
+- `tests/logic.test.mjs`: scoring, stages and funnel, follow-ups, duplicates, CSV, career calculations (order, promotions, moves, overlaps), and outcome learning (similar profiles up, past no's down, no blanket company boost, ±15 cap, language/region never used).
+- `tests/ai-fallback.test.mjs`: runs against fake providers in a temporary folder. Rate limit → next provider, invalid key → stop, manual pinning, PDF capability, disabled providers, priority, encrypted keys, per-provider usage and limit alerts.
+
+Run them after any change.
+
 ## Cloud storage (use the app from any computer)
 
 By default all data lives in the `data/` folder on this computer. To keep it in a cloud PostgreSQL database instead:
