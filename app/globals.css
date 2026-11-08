@@ -1137,3 +1137,8 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .pastRow { flex-wrap: nowrap; overflow: hidden; }
 .pastItem { flex: 0 1 auto; min-width: 0; }
 .pastRow .pastLbl, .pastRow .pastMore { flex-shrink: 0; }
+/* Recorded cards v2: topic as title, guest block anchored at the bottom */
+.epTitle { -webkit-line-clamp: 3; min-height: 0; font-size: 15.5px; line-height: 1.4; }
+.epHook { -webkit-line-clamp: 2; min-height: 0; }
+.epWho { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.epActions { margin-top: 0; }

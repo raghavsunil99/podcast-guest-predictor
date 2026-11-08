@@ -387,3 +387,10 @@ test("previous companies: newest first, no repeats, no current company, no job t
   const g = { company: "Coactive AI", pastCompanies: ["Nuro", "Google", "Google LLC", "Software Engineer II", "Coactive AI", "MIT Media Lab"] };
   assert.deepEqual(previousCompanies(g), ["Nuro", "Google", "MIT Media Lab"]);
 });
+
+test("invite hook becomes an episode topic", async () => {
+  const { episodeTopic } = await import("../lib/crm.js");
+  assert.equal(episodeTopic("your transition from electrical engineering into software testing and your recent selection."), "Transition from electrical engineering into software testing and their recent selection");
+  assert.equal(episodeTopic("His evolution from NLP to Agentic AI"), "Evolution from NLP to Agentic AI");
+  assert.equal(episodeTopic("Founding the Thanjavur Marathi Language Platform"), "Founding the Thanjavur Marathi Language Platform");
+});

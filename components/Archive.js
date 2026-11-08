@@ -7,6 +7,7 @@ import GuestPhoto from "./GuestPhoto";
 import { CompanyName, Drawer, Empty, ViewSwitch, fmtDate, useViewPref } from "./ui";
 import { exportCSV } from "./Guests";
 import EpisodeForm, { episodeLinks } from "./EpisodeForm";
+import { episodeTopic } from "@/lib/crm";
 
 // Episode order: the number you set wins; otherwise episodes are numbered by recording date.
 export function orderEpisodes(guests) {
@@ -128,11 +129,13 @@ export default function Archive({ guests, api }) {
                   Recorded {ep.recordedAt ? fmtDate(ep.recordedAt) : "date not set"}
                   {ep.published && ep.publishedAt ? ` · Published ${fmtDate(ep.publishedAt)}` : ""}
                 </span>
-                <h3 className="epTitle">{ep.title || `Episode with ${g.name}`}</h3>
-                <p className="muted small epHook">{!ep.title && g.result?.hook ? g.result.hook.charAt(0).toUpperCase() + g.result.hook.slice(1) : ""}</p>
+                <h3 className="epTitle">{ep.title || episodeTopic(g.result?.hook) || `Episode with ${g.name}`}</h3>
+                {ep.title && episodeTopic(g.result?.hook) && <p className="muted small epHook">{episodeTopic(g.result?.hook)}</p>}
+                <div className="epWho">
                 <p className="epGuest" title={`${g.name} · ${g.role}`}><strong>{g.name}</strong> · {g.role}</p>
                 <CompanyName name={g.company} domain={g.companyDomain} />
                 <div className="epPast"><PastCompanies g={g} max={2} /></div>
+                </div>
                 <div className="row gap8 epActions wrap" onClick={(e) => e.stopPropagation()}>
                   {links.length ? (
                     links.map((l) => (
