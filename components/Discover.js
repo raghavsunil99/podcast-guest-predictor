@@ -4,6 +4,7 @@
 // saved to the pipeline automatically (duplicates are merged with the existing guest).
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyName, StageBadge } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 
@@ -221,7 +222,7 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
           <div className="stack16 fadeIn">
             <div className="card">
               <div className="guestHead">
-                <Avatar name={p?.fullName} src={guest?.photoUrl} alt={guest?.gravatarUrl} size={56} ring />
+                {guest ? <GuestPhoto g={guest} size={56} ring /> : <Avatar name={p?.fullName} size={56} ring />}
                 <div className="guestHeadText">
                   <h2>{p?.fullName}</h2>
                   <p className="muted">{p?.currentRole}</p>

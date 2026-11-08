@@ -996,3 +996,9 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .pubToggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
 @media (hover: none) { .epTools { opacity: 1; } }
 .flipX { display: inline-grid; transform: scaleX(-1); }
+/* Change a guest photo from anywhere */
+.gPhoto { position: relative; display: inline-grid; flex-shrink: 0; border-radius: 50%; }
+.gPhoto > .avatar { grid-area: 1 / 1; }
+.gPhotoBtn { grid-area: 1 / 1; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, 0.5); color: #fff; opacity: 0; cursor: pointer; transition: opacity 0.15s; z-index: 1; }
+.gPhoto:hover .gPhotoBtn, .gPhotoBtn:focus-visible { opacity: 1; }
+@media (hover: none) { .gPhotoBtn { opacity: 0; } }

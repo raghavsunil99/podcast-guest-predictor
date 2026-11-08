@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyLogo, Empty, ScoreRing } from "./ui";
 import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, stageClass, tierOf } from "@/lib/crm";
 
 export function GuestChip({ g, onOpen, extra, showRing = true }) {
   return (
     <button className="guestChip" onClick={() => onOpen(g.id)}>
-      <Avatar name={g.name} src={g.photoUrl} alt={g.gravatarUrl} size={34} />
+      <GuestPhoto g={g} size={34} />
       <span className="gcText">
         <strong>{g.name}</strong>
         <span className="gcSub">
@@ -38,7 +39,7 @@ function MiniCard({ g, stage, days, api, dragId, setDragId }) {
       onDragEnd={() => setDragId(null)}
     >
       <button className="kMain" onClick={() => api.open(g.id)}>
-        <Avatar name={g.name} src={g.photoUrl} alt={g.gravatarUrl} size={30} />
+        <GuestPhoto g={g} size={30} />
         <span className="kText">
           <strong>{g.name}</strong>
           <span className="kSub">
@@ -174,7 +175,7 @@ export default function Pipeline({ guests, api, settings }) {
                     onDragEnd={() => setDragId(null)}
                     onClick={() => api.open(g.id)}
                   >
-                    <Avatar name={g.name} src={g.photoUrl} alt={g.gravatarUrl} size={20} />
+                    <GuestPhoto g={g} size={20} />
                     {g.name}
                   </button>
                 ))}

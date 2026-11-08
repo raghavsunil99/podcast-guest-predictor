@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyName, Drawer, Empty, fmtDate } from "./ui";
 import { exportCSV } from "./Guests";
 import EpisodeForm, { episodeLinks } from "./EpisodeForm";
@@ -69,7 +70,7 @@ export default function Archive({ guests, api }) {
                   <button title="Move right (lower episode number)" disabled={idx === 0 || moving} onClick={() => move(idx, -1)}><Icon name="chevronRight" size={14} /></button>
                   <button title="Edit episode" onClick={() => setEditing(g)}><Icon name="edit" size={13} /></button>
                 </div>
-                <Avatar name={g.name} src={g.photoUrl} alt={g.gravatarUrl} size={72} ring />
+                <GuestPhoto g={g} size={72} ring />
               </div>
               <div className="epBody">
                 <span className="muted tiny">

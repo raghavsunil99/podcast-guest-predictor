@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyLogo, Empty, ScoreRing, TierBadge, fmtDate, pct, timeAgo, useCountUp } from "./ui";
 import { GuestChip } from "./Pipeline";
 import { ALL_STAGES, TIERS, analytics, followUpsDue, stageClass } from "@/lib/crm";
@@ -178,7 +179,7 @@ export default function Dashboard({ guests, api, settings }) {
                 <ScoreRing score={hero.guest.score} likelihood={hero.guest.likelihood} size={84} stroke={7} />
                 <div className="nextText">
                   <div className="row gap8">
-                    <Avatar name={hero.guest.name} src={hero.guest.photoUrl} alt={hero.guest.gravatarUrl} size={26} />
+                    <GuestPhoto g={hero.guest} size={26} />
                     <strong>{hero.guest.name}</strong>
                   </div>
                   <span className="muted small">{[hero.guest.role, hero.guest.company].filter(Boolean).join(" · ")}</span>
@@ -255,7 +256,7 @@ export default function Dashboard({ guests, api, settings }) {
           <ul className="feed">
             {recent.map((r) => (
               <li key={r.id + r.g.id}>
-                <Avatar name={r.g.name} src={r.g.photoUrl} alt={r.g.gravatarUrl} size={28} />
+                <GuestPhoto g={r.g} size={28} />
                 <p>
                   <button className="linkBtn strong" onClick={() => api.open(r.g.id)}>{r.g.name}</button>{" "}
                   <span className="muted">{r.type === "note" ? `· note: ${r.text}` : `· ${r.text}`}</span>

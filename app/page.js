@@ -9,6 +9,7 @@ import Guests from "@/components/Guests";
 import Companies from "@/components/Companies";
 import Recommendations from "@/components/Recommendations";
 import Archive from "@/components/Archive";
+import { PhotoProvider } from "@/components/GuestPhoto";
 import Settings from "@/components/Settings";
 import GuestDrawer from "@/components/GuestDrawer";
 import { ThemeSwitcher, useTheme } from "@/components/ui";
@@ -213,6 +214,7 @@ export default function App() {
   const props = { guests, api, settings };
 
   return (
+    <PhotoProvider patch={api.patch} flash={flash}>
     <div className="app">
       <aside className={`sidebar${navOpen ? " open" : ""}`}>
         <div className="brandRow">
@@ -314,6 +316,7 @@ export default function App() {
       {openGuest && <GuestDrawer key={openGuest.id} guest={openGuest} api={api} settings={settings} onClose={() => setOpenId(null)} />}
       {toast && <div className="toast" role="status"><Icon name="check" size={15} />{toast}</div>}
     </div>
+    </PhotoProvider>
   );
 }
 

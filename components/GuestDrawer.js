@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
 import EpisodeForm from "./EpisodeForm";
+import { resizePhoto } from "./GuestPhoto";
 import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
@@ -10,22 +11,6 @@ import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
 const TABS = ["Overview", "Messages", "Contact", "Notes & history", "Episode"];
 const ACT_ICON = { created: "plus", stage: "arrowRight", note: "note", regenerated: "refresh", update: "edit" };
 
-// Resize an uploaded photo to a small square JPEG so it can live in the guest record.
-function resizePhoto(file, size = 192) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement("canvas");
-      c.width = c.height = size;
-      const s = Math.min(img.width, img.height);
-      c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-      resolve(c.toDataURL("image/jpeg", 0.85));
-      URL.revokeObjectURL(img.src);
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
 
 export default function GuestDrawer({ guest: g, api, onClose, settings }) {
   const [tab, setTab] = useState("Overview");

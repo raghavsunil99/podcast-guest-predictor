@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyLogo, Drawer, Empty, StageBadge, TierBadge, pct } from "./ui";
 import { GuestChip } from "./Pipeline";
 import { exportCSV } from "./Guests";
@@ -62,7 +63,7 @@ export default function Companies({ guests, api }) {
             </div>
             <div className="ccFoot">
               <div className="avatarStack">
-                {c.members.slice(0, 4).map((m) => <Avatar key={m.id} name={m.name} src={m.photoUrl} size={26} ring />)}
+                {c.members.slice(0, 4).map((m) => <GuestPhoto key={m.id} g={m} size={26} ring />)}
                 {c.members.length > 4 && <span className="more">+{c.members.length - 4}</span>}
               </div>
               <span className="row gap6">

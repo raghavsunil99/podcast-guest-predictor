@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyName, Empty, ScoreRing, StageBadge, TierBadge, timeAgo } from "./ui";
 import { ALL_STAGES, findDuplicates, normText, tierOf, toCSV } from "@/lib/crm";
 
@@ -210,7 +211,7 @@ export default function Guests({ guests, api, initialFilter }) {
                 </td>
                 <td>
                   <div className="cellGuest">
-                    <Avatar name={g.name} src={g.photoUrl} alt={g.gravatarUrl} size={34} />
+                    <GuestPhoto g={g} size={34} />
                     <div>
                       <strong>{g.name}{dupIds.has(g.id) && <span className="dupTag">Duplicate?</span>}</strong>
                       <span className="muted small ellipsis">{g.role}</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Icon from "./icons";
+import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyLogo, Empty, ScoreRing, timeAgo } from "./ui";
 import { GuestChip } from "./Pipeline";
 import { groupCompanies } from "@/lib/crm";
@@ -81,7 +82,7 @@ export default function Recommendations({ guests, api, settings, model, onUsageC
           {hero ? (
             <>
               <button className="recHeroGuest" onClick={() => api.open(hero.guest.id)}>
-                <Avatar name={hero.guest.name} src={hero.guest.photoUrl} alt={hero.guest.gravatarUrl} size={52} ring />
+                <GuestPhoto g={hero.guest} size={52} ring />
                 <span>
                   <strong>{hero.guest.name}</strong>
                   <span className="muted">{[hero.guest.role, hero.guest.company].filter(Boolean).join(" · ")}</span>
