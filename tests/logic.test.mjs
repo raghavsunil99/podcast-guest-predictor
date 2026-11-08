@@ -296,3 +296,29 @@ test("normalize: honorific respects override and low confidence", () => {
   const none = base(); none.background.confidence = "High";
   assert.equal(normalizeResult(none, "none").fullMessage, "Hi Ravi,");
 });
+
+// ---------- Per-model usage left today ----------
+import { modelBreakdown, msUntilPacificMidnight } from "../lib/usage.js";
+
+test("per-model usage counts used and left against each model's limit", () => {
+  const p = { model: "flash", fallbackModels: ["lite"], modelLimits: { flash: 20, lite: 100 } };
+  const e = (model, ok, errorType, t) => ({ model, ok, errorType, t: t || "2026-11-08T01:00:00Z", total: ok ? 1000 : 0 });
+  const rows = modelBreakdown(p, [e("flash", true), e("flash", true), e("flash", false, "rate"), e("lite", true)]);
+  assert.deepEqual(rows.map((r) => [r.model, r.used, r.left, r.exhausted]), [["flash", 3, 17, false], ["lite", 1, 99, false]]);
+});
+
+test("a daily-quota error marks the model used up even without a limit", () => {
+  const p = { model: "flash", fallbackModels: [] };
+  const rows = modelBreakdown(p, [
+    { model: "flash", ok: true, t: "2026-11-08T01:00:00Z", total: 5 },
+    { model: "flash", ok: false, errorType: "quota", t: "2026-11-08T02:00:00Z", total: 0 },
+  ]);
+  assert.equal(rows[0].exhausted, true);
+  assert.equal(rows[0].left, 0);
+  assert.equal(rows[0].used, 1, "the rejected request doesn't count as used");
+});
+
+test("reset countdown is within one day", () => {
+  const ms = msUntilPacificMidnight();
+  assert.ok(ms > 0 && ms <= 86400000);
+});

@@ -223,9 +223,7 @@ function ProviderCard({ p, index, count, usage, refresh, flash }) {
         <div><b>{fmt(t?.total)}</b><span>Tokens today</span></div>
         <div><b>{rl?.requestsRemaining != null ? fmt(rl.requestsRemaining) : "—"}</b><span>Requests left (provider)</span></div>
       </div>
-      {p.dailyLimit ? (
-        <div className={`meter${usage?.pct >= 90 ? " danger" : usage?.pct >= (p.warnAt || 80) ? " warn" : ""}`}><div style={{ width: `${Math.min(100, usage?.pct || 0)}%` }} /></div>
-      ) : null}
+      <QuotaRows p={p} models={usage?.models} onSetLimit={(model, n) => patch({ modelLimits: { ...(p.modelLimits || {}), [model]: n } }, `Daily limit for ${model} saved`)} />
       {t?.errors && Object.keys(t.errors).length > 0 && (
         <div className="errChips">
           {Object.entries(t.errors).map(([k, v]) => <span key={k} className={`errChip e-${k}`}>{ERR_LABEL[k] || k} × {v}</span>)}
@@ -503,6 +501,51 @@ function UsagePanel({ usage, onRefresh, providers = [] }) {
           <a href="https://aistudio.google.com/usage" target="_blank" rel="noreferrer">AI Studio → Usage</a>.
         </p>
       </div>
+    </div>
+  );
+}
+
+export function formatResetIn(ms) {
+  if (ms == null) return "";
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Per-model "used / left today" with an editable daily limit.
+function QuotaRows({ p, models, onSetLimit }) {
+  const [editing, setEditing] = useState("");
+  const [val, setVal] = useState("");
+  if (p.type === "ollama") return <p className="quotaFree">Unlimited: runs on this computer, no daily limit.</p>;
+  if (!models?.length) return null;
+  return (
+    <div className="quotaRows">
+      {models.map((m) => {
+        const pct = m.exhausted ? 100 : m.limit ? Math.min(100, Math.round((m.used / m.limit) * 100)) : 0;
+        const tone = m.exhausted || pct >= 90 ? " danger" : pct >= (p.warnAt || 80) ? " warn" : "";
+        return (
+          <div key={m.model} className="quotaRow">
+            <div className="quotaTop">
+              <span className="quotaModel">{m.model}{m.model === p.model ? <em> main</em> : <em> backup</em>}</span>
+              <span className={`quotaLeft${tone}`}>
+                {m.exhausted ? "Used up today" : m.limit ? `${fmt(m.left)} left` : "Limit not set"}
+              </span>
+            </div>
+            {(m.limit || m.exhausted) && <div className={`meter${tone}`}><div style={{ width: `${pct}%` }} /></div>}
+            <div className="quotaSub">
+              <span>{fmt(m.used)} used{m.limit ? ` of ${fmt(m.limit)}` : ""} · {fmt(m.tokens)} tokens</span>
+              {editing === m.model ? (
+                <span className="quotaEdit">
+                  <input type="number" min="1" autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="per day"
+                    onKeyDown={(e) => { if (e.key === "Enter") { onSetLimit(m.model, Number(val) || null); setEditing(""); } if (e.key === "Escape") setEditing(""); }} />
+                  <button className="linkBtn" onClick={() => { onSetLimit(m.model, Number(val) || null); setEditing(""); }}>Save</button>
+                </span>
+              ) : (
+                <button className="linkBtn" onClick={() => { setEditing(m.model); setVal(m.limit || ""); }}>{m.limit ? "Edit limit" : "Set daily limit"}</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -247,6 +247,7 @@ export default function App() {
               <span>{usage.alerts.map((a) => `${a.name} ${a.pct}%`).join(" · ")} of daily limit</span>
             </button>
           )}
+          <SideQuota usage={usage} providers={providers} onOpen={() => { setSettingsTab("providers"); go("settings"); }} />
           <button className={`navItem${view === "settings" ? " active" : ""}`} onClick={() => go("settings")}>
             <Icon name="settings" size={18} />
             <span>Settings</span>
@@ -313,5 +314,38 @@ export default function App() {
       {openGuest && <GuestDrawer key={openGuest.id} guest={openGuest} api={api} settings={settings} onClose={() => setOpenId(null)} />}
       {toast && <div className="toast" role="status"><Icon name="check" size={15} />{toast}</div>}
     </div>
+  );
+}
+
+// Compact "AI left today" panel in the sidebar: one line per enabled provider's main model.
+function SideQuota({ usage, providers, onOpen }) {
+  const rows = (providers || []).filter((p) => p.enabled).map((p) => {
+    const m = usage?.byProvider?.[p.id]?.models?.find((x) => x.model === p.model);
+    const backupsLeft = (usage?.byProvider?.[p.id]?.models || []).filter((x) => x.model !== p.model && !x.exhausted).length;
+    let text, tone = "";
+    if (p.type === "ollama") text = "Unlimited";
+    else if (!m) text = "—";
+    else if (m.exhausted) { text = backupsLeft ? "Backup in use" : "Used up"; tone = "danger"; }
+    else if (m.limit) {
+      text = `${m.left} of ${m.limit} left`;
+      const pct = (m.used / m.limit) * 100;
+      tone = pct >= 90 ? "danger" : pct >= (p.warnAt || 80) ? "warn" : "";
+    } else text = `${m.used} used`;
+    const pct = p.type === "ollama" ? 0 : m?.exhausted ? 100 : m?.limit ? Math.min(100, (m.used / m.limit) * 100) : 0;
+    return { id: p.id, name: p.name, text, tone, pct, showBar: p.type !== "ollama" && (m?.limit || m?.exhausted) };
+  });
+  if (!rows.length) return null;
+  const h = usage?.resetsInMs != null ? Math.floor(usage.resetsInMs / 3600000) : null;
+  const mm = usage?.resetsInMs != null ? Math.floor((usage.resetsInMs % 3600000) / 60000) : null;
+  return (
+    <button className="sideQuota" onClick={onOpen} title="Open AI providers">
+      <span className="sqHead">AI usage today{h != null && <em>resets in {h ? `${h}h ${mm}m` : `${mm}m`}</em>}</span>
+      {rows.map((r) => (
+        <span key={r.id} className="sqRow">
+          <span className="sqLine"><span className="sqName">{r.name}</span><span className={`sqVal ${r.tone}`}>{r.text}</span></span>
+          {r.showBar && <span className={`meter thin ${r.tone}`}><span style={{ width: `${r.pct}%` }} /></span>}
+        </span>
+      ))}
+    </button>
   );
 }

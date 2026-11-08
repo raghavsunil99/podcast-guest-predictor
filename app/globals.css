@@ -951,3 +951,32 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .formGrid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 760px) { .formGrid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pc-ollama { background: linear-gradient(135deg, #3f3f46, #18181b); }
+
+/* Per-model quota (Settings) and sidebar usage panel */
+.quotaRows { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--sunken); border-radius: 10px; }
+.quotaRow { display: flex; flex-direction: column; gap: 5px; }
+.quotaTop, .quotaSub { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.quotaModel { font-weight: 500; font-size: 13px; }
+.quotaModel em { font-style: normal; color: var(--muted); font-weight: 400; font-size: 12px; }
+.quotaLeft { font-weight: 600; font-size: 13px; }
+.quotaLeft.warn { color: var(--med); }
+.quotaLeft.danger { color: var(--low); }
+.quotaSub { font-size: 12px; color: var(--muted); }
+.quotaEdit { display: inline-flex; gap: 6px; align-items: center; }
+.quotaEdit input { width: 80px; padding: 3px 6px; font-size: 12px; }
+.quotaFree { font-size: 13px; color: var(--muted); margin: 0; }
+.quotaRows .meter, .meter.thin { height: 5px; }
+.sideQuota { display: flex; flex-direction: column; gap: 7px; width: 100%; text-align: left; background: var(--sunken); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; font: inherit; color: inherit; cursor: pointer; }
+.sideQuota:hover { border-color: var(--accent); }
+.sqHead { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+.sqHead em { font-style: normal; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.sqRow { display: flex; flex-direction: column; gap: 4px; }
+.sqLine { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; }
+.sqName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sqVal { font-weight: 600; white-space: nowrap; }
+.sqVal.warn { color: var(--med); }
+.sqVal.danger { color: var(--low); }
+.meter.thin { display: block; }
+.meter.thin span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.meter.thin.warn span { background: var(--med); }
+.meter.thin.danger span { background: var(--low); }
