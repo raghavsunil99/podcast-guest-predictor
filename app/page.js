@@ -9,6 +9,7 @@ import Guests from "@/components/Guests";
 import Companies from "@/components/Companies";
 import Recommendations from "@/components/Recommendations";
 import Archive from "@/components/Archive";
+import Targets from "@/components/Targets";
 import { PhotoProvider } from "@/components/GuestPhoto";
 import Settings from "@/components/Settings";
 import GuestDrawer from "@/components/GuestDrawer";
@@ -28,6 +29,7 @@ const NAV = [
   { id: "pipeline", label: "Pipeline", icon: "pipeline", title: "Pipeline", sub: "Drag guests through Discovered → Shortlisted → Contacted → Responded → Accepted → Recorded" },
   { id: "guests", label: "Guests", icon: "users", title: "Guests", sub: "Every guest you've studied, with filters and export" },
   { id: "companies", label: "Companies", icon: "building", title: "Companies", sub: "Guests discovered, contacted and recorded per company" },
+  { id: "targets", label: "Target companies", icon: "target", title: "Target companies", sub: "AI-ranked companies to find guests at, and the ones you're tracking" },
   { id: "recommendations", label: "Recommendations", icon: "compass", title: "Recommendations", sub: "Who to approach next and where to look" },
   { id: "archive", label: "Recorded", icon: "archive", title: "Recorded episodes", sub: "Your archive of recorded conversations" },
 ];
@@ -289,6 +291,7 @@ export default function App() {
             {view === "pipeline" && <Pipeline {...props} />}
             {view === "guests" && <Guests {...props} initialFilter={viewParams} key={JSON.stringify(viewParams)} />}
             {view === "companies" && <Companies {...props} />}
+            {view === "targets" && <Targets {...props} flash={flash} onUsageChange={refreshUsage} />}
             {view === "recommendations" && <Recommendations {...props} model={model} flash={flash} onUsageChange={refreshUsage} />}
             {view === "archive" && <Archive {...props} />}
             {view === "settings" && (

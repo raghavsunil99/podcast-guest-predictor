@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyLogo, Empty, ScoreRing, TierBadge, fmtDate, pct, timeAgo, useCountUp } from "./ui";
@@ -232,6 +232,8 @@ export default function Dashboard({ guests, api, settings }) {
           )}
         </section>
 
+        <TopTargets api={api} />
+
         <section className="card">
           <div className="cardHead"><div><h3>Outcomes</h3><p className="muted small">Where every guest is right now</p></div></div>
           <ul className="outcomeList">
@@ -268,5 +270,47 @@ export default function Dashboard({ guests, api, settings }) {
         </section>
       </div>
     </div>
+  );
+}
+
+// Pinned target companies, with how many guests you've found at each.
+function TopTargets({ api }) {
+  const [t, setT] = useState(null);
+  useEffect(() => { fetch("/api/targets", { cache: "no-store" }).then((r) => r.json()).then(setT).catch(() => setT({ pinned: [] })); }, []);
+  const pinned = (t?.pinned || []).filter((x) => x.status !== "Recorded").slice(0, 5);
+  const ideas = (t?.suggestions?.items || []).slice(0, 3);
+  return (
+    <section className="card">
+      <div className="cardHead">
+        <div><h3>Target companies</h3><p className="muted small">Where to find your next guests</p></div>
+        <button className="linkBtn" onClick={() => api.go("targets")}>Open <Icon name="arrowRight" size={13} /></button>
+      </div>
+      {!t ? <p className="muted small">Loading…</p> : pinned.length ? (
+        <ul className="ttList">
+          {pinned.map((x) => (
+            <li key={x.key}>
+              <CompanyLogo name={x.name} domain={x.domain} size={26} />
+              <span className="grow"><strong>{x.name}</strong><span className="muted tiny block">{x.status} · {x.progress.found} studied{x.progress.recorded ? ` · ${x.progress.recorded} recorded` : ""}</span></span>
+              {x.fitScore != null && <span className="ttFit">{x.fitScore}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : ideas.length ? (
+        <>
+          <p className="muted tiny">Top AI suggestions (not pinned yet):</p>
+          <ul className="ttList">
+            {ideas.map((x) => (
+              <li key={x.key}>
+                <CompanyLogo name={x.name} domain={x.domain} size={26} />
+                <span className="grow"><strong>{x.name}</strong><span className="muted tiny block">{x.industry}</span></span>
+                <span className="ttFit">{x.fitScore}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <button className="btn btnSm" onClick={() => api.go("targets")}><Icon name="sparkle" size={14} />Get AI company suggestions</button>
+      )}
+    </section>
   );
 }

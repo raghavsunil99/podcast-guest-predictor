@@ -354,3 +354,30 @@ test("merge keeps the further stage and loses no notes, history or contact info"
   assert.equal(m.activity.length, 3);
   assert.equal(m.episode.recordedAt, "2026-11-05");
 });
+
+// ---------- Target companies ----------
+import { cleanSuggestions, fitLabel, trackTargets } from "../lib/targets.js";
+
+test("target suggestions skip companies you already have guests from and duplicates", () => {
+  const guests = [{ id: "1", company: "Adobe", stage: "Discovered" }];
+  const out = cleanSuggestions([
+    { name: "Adobe Inc", domain: "adobe.com", fitScore: 90 },
+    { name: "Zerodha", domain: "https://www.zerodha.com/", fitScore: 72.4, category: "Fintech" },
+    { name: "Swiggy", domain: "swiggy.com", fitScore: 85, category: "Weird" },
+    { name: "Zerodha", domain: "zerodha.com", fitScore: 60 },
+  ], guests, [{ key: "swiggy" }]);
+  assert.deepEqual(out.map((c) => [c.name, c.fitScore, c.domain, c.category]), [["Zerodha", 72, "zerodha.com", "Fintech"]]);
+  assert.equal(fitLabel(85), "Best fit");
+  assert.equal(fitLabel(70), "Good fit");
+});
+
+test("pinned targets move forward when guests from them appear", () => {
+  const guests = [
+    { id: "1", company: "Zerodha", stage: "Recorded", milestones: { Recorded: "x" } },
+    { id: "2", company: "Swiggy", stage: "Discovered" },
+  ];
+  const out = trackTargets([
+    { key: "zerodha", status: "Target" }, { key: "swiggy", status: "Searching" }, { key: "cred", status: "Searching" },
+  ], guests);
+  assert.deepEqual(out.map((t) => [t.status, t.progress.found]), [["Recorded", 1], ["Found guests", 1], ["Searching", 0]]);
+});

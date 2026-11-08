@@ -1072,3 +1072,39 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .column.isEmpty .colHead { flex-wrap: wrap; row-gap: 2px; }
 .column.isEmpty .colHead strong { white-space: nowrap; overflow: visible; font-size: 11.5px; line-height: 1.25; flex-basis: 100%; order: 2; }
 .column.isEmpty .colEmpty { font-size: 11px; padding: 14px 4px; text-align: center; }
+/* Target companies */
+.tgAsk { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.tgAsk h3 { font-size: 16px; }
+.tgFilters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tgFilters .grow { flex: 1 1 220px; }
+.tgGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.tgCard { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow-sm); }
+.tgCard.pinned { border-top: 3px solid var(--accent); }
+.tgCard.pinned.st-3 { border-top-color: #2fd998; }
+.tgRank { position: absolute; top: -9px; left: 14px; font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--sunken); border: 1px solid var(--border); color: var(--muted); }
+.tgHead { display: flex; gap: 12px; align-items: center; }
+.tgHead strong { font-size: 15px; }
+.fitBadge { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.1; font-size: 10.5px; font-weight: 600; padding: 4px 8px; border-radius: 10px; white-space: nowrap; }
+.fitBadge b { font-size: 17px; font-family: var(--mono); }
+.fitBadge.best { background: color-mix(in srgb, #2fd998 18%, transparent); color: #14905f; }
+.fitBadge.good { background: var(--accent-soft); color: var(--accent-ink); }
+.fitBadge.try { background: var(--sunken); color: var(--muted); }
+:root[data-theme="dark"] .fitBadge.best { color: #7ff0c2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fitBadge.best { color: #7ff0c2; } }
+.tgChip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 7px; background: var(--sunken); color: var(--text-2); }
+.tgChip.soft { color: var(--muted); }
+.tgChip.like { background: var(--accent-soft); color: var(--accent-ink); }
+.tgWhy { color: var(--text-2); }
+.roleLinks .allPeople { background: var(--sunken); color: var(--text-2); }
+.tgFoot { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
+.tgProgress { display: flex; gap: 14px; font-size: 12.5px; color: var(--text-2); flex-wrap: wrap; }
+.tgProgress b { font-family: var(--mono); color: var(--text); }
+.tgSteps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+.tgStep { font: inherit; font-size: 10.5px; font-weight: 500; padding: 5px 2px; border: 0; border-radius: 6px; background: var(--sunken); color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tgStep.done { background: var(--accent-soft); color: var(--accent-ink); }
+.tgStep.cur { background: var(--accent); color: #fff; }
+.pad16 { padding: 16px; }
+@media (max-width: 640px) { .tgGrid { grid-template-columns: 1fr; } .tgFilters { display: grid; grid-template-columns: 1fr 1fr; } .tgFilters .fSelect { width: 100%; min-width: 0; } .tgFilters .grow { grid-column: 1 / -1; } }
+.ttList { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.ttList li { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.ttFit { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-ink); }
