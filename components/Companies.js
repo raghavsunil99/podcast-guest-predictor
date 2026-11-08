@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyLogo, Drawer, Empty, StageBadge, TierBadge, pct } from "./ui";
+import { CompanyLogo, Drawer, Empty, StageBadge, TierBadge, ViewSwitch, pct, useViewPref } from "./ui";
 import { GuestChip } from "./Pipeline";
 import { exportCSV } from "./Guests";
 import { groupCompanies, normText } from "@/lib/crm";
@@ -12,6 +12,7 @@ export default function Companies({ guests, api }) {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("guests");
   const [openKey, setOpenKey] = useState(null);
+  const [view, setView] = useViewPref("companies", "cards");
   const companies = useMemo(() => groupCompanies(guests), [guests]);
   const list = companies
     .filter((c) => !q || normText(c.name + " " + (c.industry || "")).includes(normText(q)))
@@ -43,8 +44,72 @@ export default function Companies({ guests, api }) {
             <option value="open">Most not yet contacted</option>
           </select>
         </label>
+        <ViewSwitch value={view} onChange={setView} options={["cards", "grid", "table"]} />
       </div>
 
+      {view === "table" && (
+        <div className="tableWrap card flush">
+          <table className="gTable">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th className="hideSm">Industry</th>
+                <th className="num">Guests</th>
+                <th className="num">Contacted</th>
+                <th className="num">Recorded</th>
+                <th className="num hideSm">Conversion</th>
+                <th className="num">Avg score</th>
+                <th className="hideSm">Not contacted</th>
+                <th className="hideSm">Guests</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((c) => (
+                <tr key={c.key} onClick={() => setOpenKey(c.key)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setOpenKey(c.key)}>
+                  <td>
+                    <div className="cellGuest">
+                      <CompanyLogo name={c.name} domain={c.domain} size={28} />
+                      <div>
+                        <strong>{c.name}</strong>
+                        {c.alumni.length > 0 && <span className="muted tiny block">+{c.alumni.length} former employee{c.alumni.length > 1 ? "s" : ""}</span>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="hideSm muted small">{c.industry || "—"}</td>
+                  <td className="num"><b>{c.guests}</b></td>
+                  <td className="num">{c.contacted}</td>
+                  <td className="num">{c.recorded}</td>
+                  <td className="num hideSm">{pct(c.guests ? c.recorded / c.guests : 0)}</td>
+                  <td className="num">{c.avgScore ?? "–"}</td>
+                  <td className="hideSm">{c.open > 0 ? <span className="openTag">{c.open}</span> : <span className="muted">—</span>}</td>
+                  <td className="hideSm" onClick={(e) => e.stopPropagation()}>
+                    <div className="avatarStack">
+                      {c.members.slice(0, 4).map((m) => <GuestPhoto key={m.id} g={m} size={24} ring />)}
+                      {c.members.length > 4 && <span className="more">+{c.members.length - 4}</span>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view === "grid" && (
+        <div className="coTiles">
+          {list.map((c) => (
+            <button key={c.key} className="coTile" onClick={() => setOpenKey(c.key)}>
+              <CompanyLogo name={c.name} domain={c.domain} size={44} />
+              <strong className="clamp2">{c.name}</strong>
+              <span className="muted tiny">{c.guests} guest{c.guests > 1 ? "s" : ""}{c.recorded ? ` · ${c.recorded} recorded` : ""}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!list.length && <p className="muted center pad24">No companies match “{q}”.</p>}
+
+      {view === "cards" && (
       <div className="companyGrid">
         {list.map((c) => (
           <button key={c.key} className="companyCard" onClick={() => setOpenKey(c.key)}>
@@ -74,6 +139,7 @@ export default function Companies({ guests, api }) {
           </button>
         ))}
       </div>
+      )}
 
       {open && (
         <Drawer onClose={() => setOpenKey(null)} label={`${open.name} guests`}>
