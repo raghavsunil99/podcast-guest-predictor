@@ -1,17 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
-import { recordUsage } from "@/lib/usage";
+import { aiErrorResponse, runAI } from "@/lib/ai/service";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-// Tried in order when the main model is busy or slow.
-const FALLBACK_MODELS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-3.5-flash-lite,gemini-3.8-flash")
-  .split(",")
-  .map((m) => m.trim())
-  .filter((m) => m && m !== MODEL);
-const MODELS = [MODEL, ...FALLBACK_MODELS];
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
 
 const OUTPUT_SCHEMA = {
@@ -24,6 +16,12 @@ const OUTPUT_SCHEMA = {
         firstName: { type: "string" },
         currentRole: { type: "string" },
         currentCompany: { type: "string" },
+        companyDomain: {
+          type: "string",
+          description: "The current company's official website domain from well-known knowledge, e.g. 'cisco.com', 'tcs.com', 'swiggy.in'. '' if unsure or the company is obscure.",
+        },
+        industry: { type: "string", description: "Industry of the current company, short, e.g. 'IT Services', 'Fintech', 'E-commerce', 'Edtech', 'Networking', 'Healthcare'" },
+        photoUrl: { type: "string", description: "A direct profile photo image URL ONLY if one appears verbatim in the provided text; otherwise ''. Never construct one." },
         location: { type: "string", description: "Location exactly as stated on the profile" },
         currentCity: {
           type: "string",
@@ -53,7 +51,7 @@ const OUTPUT_SCHEMA = {
         domain: { type: "string" },
         aboutSummary: { type: "string" },
       },
-      required: ["fullName", "firstName", "currentRole", "currentCompany", "location", "currentCity", "education", "totalExperience", "careerPath", "skills", "domain", "aboutSummary"],
+      required: ["fullName", "firstName", "currentRole", "currentCompany", "companyDomain", "industry", "photoUrl", "location", "currentCity", "education", "totalExperience", "careerPath", "skills", "domain", "aboutSummary"],
     },
     background: {
       type: "object",
@@ -110,6 +108,16 @@ const OUTPUT_SCHEMA = {
       },
       required: ["criteria", "summary", "tips"],
     },
+    contact: {
+      type: "object",
+      description: "Contact details that appear VERBATIM in the provided profile (e.g. LinkedIn 'Contact info', About section, website links). '' for anything not shown. Never guess or construct an email or phone number.",
+      properties: {
+        email: { type: "string" },
+        phone: { type: "string" },
+        website: { type: "string", description: "Personal site, blog, Topmate, portfolio or similar" },
+      },
+      required: ["email", "phone", "website"],
+    },
     followUpMessage: { type: "string", description: "Polite follow-up to send if no reply after 4–5 days, 40–60 words" },
     hook: { type: "string", description: "The single most podcast-worthy part of their journey" },
     honorific: { type: "string", description: "e.g. 'garu', 'ji', 'Sir', 'Ma'am', or empty string" },
@@ -120,7 +128,7 @@ const OUTPUT_SCHEMA = {
     personalizationNotes: { type: "array", items: { type: "string" } },
     warnings: { type: "array", items: { type: "string" } },
   },
-  required: ["profile", "background", "socialSignals", "acceptance", "followUpMessage", "hook", "honorific", "honorificReason", "fullMessage", "connectionNote", "whatsappMessage", "personalizationNotes", "warnings"],
+  required: ["profile", "background", "socialSignals", "acceptance", "contact", "followUpMessage", "hook", "honorific", "honorificReason", "fullMessage", "connectionNote", "whatsappMessage", "personalizationNotes", "warnings"],
 };
 
 function systemInstruction(s) {
@@ -138,7 +146,8 @@ Your job:
    Set confidence: High when name and college point the same way; Medium when only one strong signal exists; Low when signals conflict or are missing. List every signal you used.
 5. Honorific: base it on the background guess. Telugu → "garu"; Hindi, Marathi, Gujarati or Punjabi → "ji"; Tamil, Kannada, Malayalam, Bengali or Low confidence → "" (just first name). If the user supplied an honorific override, use exactly that (use "" if the override is "none").
 6. Native greeting: if the user asks for it ("Native greeting: yes") AND confidence is High or Medium, open every message with the native greeting instead of "Hi", e.g. "Vanakkam Karthik," / "Namaskaram Ravi Teja garu,". Otherwise use "Hi".
-7. Social signals: read follower/connection counts, the Activity section, posts, Featured items, and any talks, webinars, podcasts, YouTube, teaching, mentoring (Topmate, ADPList), blogs or meetups. Only report what the text shows.
+7. Contact: copy any email, phone or website that the profile text itself shows (e.g. the LinkedIn Contact info section). Never invent or guess one.
+   Social signals: read follower/connection counts, the Activity section, posts, Featured items, and any talks, webinars, podcasts, YouTube, teaching, mentoring (Topmate, ADPList), blogs or meetups. Only report what the text shows.
 8. Acceptance prediction: score each criterion 0–10 for how likely this person is to say yes to a student-focused career podcast:
    - audience: LinkedIn followers/connections. 10 = 10k+ followers, 7 = 2k–10k, 5 = unknown, 3 = under 500 connections.
    - posting: how often they post or share on LinkedIn. 10 = posts weekly, 6 = occasionally, 5 = unknown, 2 = no visible activity.
@@ -188,31 +197,12 @@ function scoreAcceptance(data) {
   data.acceptance = acc;
 }
 
-// Gemini models are sometimes overloaded (503) or too slow (504). Instead of waiting,
-// move straight on to the next model in MODELS. Every attempt is logged in data/usage.json.
-// Returns { res, model, entry } where entry holds the token counts.
-async function generateWithFallback(ai, request, kind) {
-  let lastErr;
-  for (const model of MODELS) {
-    try {
-      const res = await ai.models.generateContent({ ...request, model });
-      const entry = recordUsage({ model, kind, ok: true, usage: res.usageMetadata });
-      return { res, model, entry };
-    } catch (err) {
-      lastErr = err;
-      const msg = String(err?.message || err);
-      recordUsage({ model, kind, ok: false, error: msg.match(/"code":\s*(\d+)/)?.[1] || msg });
-      const busy = /50[0-4]|UNAVAILABLE|DEADLINE|overloaded|high demand|INTERNAL|timed? ?out|abort|no longer available|not found/i.test(msg);
-      console.warn(`[gemini] ${model} failed: ${msg.slice(0, 120)}`);
-      if (!busy) throw err;
-    }
-  }
-  throw lastErr;
-}
-
-async function researchFromUrl(ai, url) {
-  const { res, entry } = await generateWithFallback(ai, {
-    contents: `Find public information about the professional whose LinkedIn profile is: ${url}
+async function researchFromUrl(url, providerId) {
+  const out = await runAI({
+    kind: "research",
+    needs: { web: true },
+    providerId,
+    parts: [{ text: `Find public information about the professional whose LinkedIn profile is: ${url}
 
 Try reading the URL directly, and also search the web for their public profile details.
 Report ONLY facts you actually found, as plain text:
@@ -224,24 +214,16 @@ Report ONLY facts you actually found, as plain text:
 - Hometown or native place, if mentioned anywhere
 - Follower and connection counts, posting activity, talks, webinars, podcasts, mentoring, YouTube or blogs
 - Skills / domain
+- Public contact details (email, website) only if published by them
 - About section (paraphrased)
 - Any notable achievements, talks, posts or projects
 
-If you could not find reliable information, say exactly "NOT_FOUND" and nothing else. Do not guess or merge different people with the same name.`,
-    config: { tools: [{ urlContext: {} }, { googleSearch: {} }] },
-  }, "research");
-  return { text: (res.text || "").trim(), tokens: entry.total };
+If you could not find reliable information, say exactly "NOT_FOUND" and nothing else. Do not guess or merge different people with the same name.` }],
+  });
+  return { text: String(out.data || "").trim(), tokens: out.tokens };
 }
 
 export async function POST(req) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { error: "GEMINI_API_KEY is not set. Add it to .env.local and restart the server." },
-      { status: 500 }
-    );
-  }
-
   let form;
   try {
     form = await req.formData();
@@ -255,6 +237,7 @@ export async function POST(req) {
   const nativeGreeting = String(form.get("nativeGreeting") || "") === "yes";
   const extraInstructions = String(form.get("extraInstructions") || "").trim();
   const pdf = form.get("pdf");
+  const providerId = String(form.get("provider") || "") || undefined; // "" = automatic fallback order
   let settings = DEFAULT_SETTINGS;
   try {
     settings = { ...DEFAULT_SETTINGS, ...JSON.parse(String(form.get("settings") || "{}")) };
@@ -268,19 +251,13 @@ export async function POST(req) {
     return Response.json({ error: "PDF is too large (max 15 MB)." }, { status: 400 });
   }
 
-  // We fall back across models ourselves (generateWithFallback), so turn off the SDK's own
-  // long-backoff retries and cap each attempt so a stuck model fails fast.
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: { timeout: 40_000, retryOptions: { attempts: 1 } },
-  });
   const parts = [];
   const sourceNotes = [];
 
   try {
     if (hasPdf) {
       const buf = Buffer.from(await pdf.arrayBuffer());
-      parts.push({ inlineData: { mimeType: "application/pdf", data: buf.toString("base64") } });
+      parts.push({ pdf: buf.toString("base64") });
       sourceNotes.push("Profile PDF attached above.");
     }
     if (profileText) {
@@ -290,7 +267,8 @@ export async function POST(req) {
     let usedWebResearch = false;
     let researchTokens = 0;
     if (!hasPdf && !profileText && url) {
-      const { text: research, tokens } = await researchFromUrl(ai, url);
+      // Only providers with web access (Gemini) can research a bare URL.
+      const { text: research, tokens } = await researchFromUrl(url, providerId);
       researchTokens = tokens;
       if (!research || research.includes("NOT_FOUND") || research.length < 80) {
         return Response.json(
@@ -322,18 +300,17 @@ ${settings.connectionTemplate}
 """`,
     });
 
-    const { res, model: usedModel, entry } = await generateWithFallback(ai, {
-      contents: [{ role: "user", parts }],
-      config: {
-        systemInstruction: systemInstruction(settings),
-        responseMimeType: "application/json",
-        responseJsonSchema: OUTPUT_SCHEMA,
-        temperature: 0.7,
-        thinkingConfig: { thinkingLevel: "LOW" },
-      },
-    }, "generate");
+    const out = await runAI({
+      kind: "generate",
+      providerId,
+      needs: { pdf: hasPdf },
+      system: systemInstruction(settings),
+      parts,
+      schema: OUTPUT_SCHEMA,
+      temperature: 0.7,
+    });
 
-    const data = JSON.parse(res.text);
+    const data = out.data;
     data.warnings = Array.isArray(data.warnings) ? data.warnings : [];
     scoreAcceptance(data);
     if (usedWebResearch) {
@@ -342,17 +319,11 @@ ${settings.connectionTemplate}
     if ((data.connectionNote || "").length > 300) {
       data.warnings.push(`Connection note is ${data.connectionNote.length} characters; LinkedIn allows 300. Shorten it before sending.`);
     }
-    data.model = usedModel;
-    data.tokensUsed = entry.total + researchTokens;
+    data.model = out.model;
+    data.ai = { provider: out.provider.name, providerId: out.provider.id, model: out.model, notice: out.notice };
+    data.tokensUsed = out.tokens + researchTokens;
     return Response.json(data);
   } catch (err) {
-    console.error(err);
-    const msg = String(err?.message || err);
-    let friendly = "Gemini request failed: " + msg.slice(0, 300);
-    if (/API key not valid|API_KEY_INVALID|401|403/i.test(msg)) friendly = "Gemini rejected the API key. Check GEMINI_API_KEY in .env.local.";
-    else if (/not found|404|no longer available/i.test(msg) && /model/i.test(msg)) friendly = `None of these models are available for your key: ${MODELS.join(", ")}. Set GEMINI_MODEL in .env.local.`;
-    else if (/50[34]|UNAVAILABLE|DEADLINE|high demand/i.test(msg)) friendly = `All Gemini models tried (${MODELS.join(", ")}) are busy right now. Wait a minute and click Generate again.`;
-    else if (/429|quota|RESOURCE_EXHAUSTED/i.test(msg)) friendly = "Gemini rate limit or quota reached. Wait a minute and try again.";
-    return Response.json({ error: friendly }, { status: 502 });
+    return aiErrorResponse(err);
   }
 }
