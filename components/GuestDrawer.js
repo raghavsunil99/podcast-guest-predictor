@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
+import EpisodeForm from "./EpisodeForm";
 import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
@@ -363,7 +364,6 @@ function NotesTab({ g, api }) {
 }
 
 function EpisodeTab({ g, api }) {
-  const [e, setE] = useState({ title: "", recordedAt: "", link: "", ...g.episode });
   const [ok, setOk] = useState(false);
   return (
     <div className="stack16">
@@ -371,23 +371,7 @@ function EpisodeTab({ g, api }) {
         <p className="alert alertInfo">Episode details are usually added once a guest has accepted. Moving them to <StageBadge stage="Recorded" /> adds them to the archive.</p>
       )}
       <div className="panel">
-        <div className="formGrid">
-          <label className="field span2"><span>Episode title</span><input value={e.title} onChange={(x) => setE({ ...e, title: x.target.value })} placeholder="From TCS to Cisco: switching to software engineering" /></label>
-          <label className="field"><span>Recording date</span><input type="date" value={e.recordedAt} onChange={(x) => setE({ ...e, recordedAt: x.target.value })} /></label>
-          <label className="field"><span>Episode link</span><input value={e.link} onChange={(x) => setE({ ...e, link: x.target.value })} placeholder="youtube.com/…" /></label>
-        </div>
-      </div>
-      <div className="row gap8">
-        <button
-          className="btn btnPrimary"
-          onClick={async () => {
-            await api.patch(g.id, { episode: e });
-            setOk(true);
-            setTimeout(() => setOk(false), 1600);
-          }}
-        >
-          <Icon name="check" size={16} />Save episode
-        </button>
+        <EpisodeForm key={g.id} episode={g.episode} onSave={async (episode) => { await api.patch(g.id, { episode }); setOk(true); setTimeout(() => setOk(false), 1600); }} />
         {ok && <span className="savedFlash">Saved</span>}
       </div>
     </div>

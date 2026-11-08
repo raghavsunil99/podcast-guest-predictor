@@ -984,3 +984,15 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .sqProv { font-size: 12px; font-weight: 600; }
 .sqName em { font-style: normal; color: var(--accent-ink); font-size: 11px; }
 .sqLine { font-size: 11.5px; }
+/* Episode editing */
+.epPub { position: absolute; top: 9px; right: 12px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); color: rgba(255, 255, 255, 0.75); }
+.epPub.on { background: rgba(47, 217, 152, 0.22); color: #7ff0c2; }
+.epTools { position: absolute; bottom: 8px; right: 10px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.episode:hover .epTools, .epTools:focus-within { opacity: 1; }
+.epTools button { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; border: 0; background: rgba(0, 0, 0, 0.45); color: #fff; cursor: pointer; }
+.epTools button:hover:not(:disabled) { background: rgba(0, 0, 0, 0.7); }
+.epTools button:disabled { opacity: 0.35; cursor: default; }
+.epActions.wrap { flex-wrap: wrap; }
+.pubToggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+@media (hover: none) { .epTools { opacity: 1; } }
+.flipX { display: inline-grid; transform: scaleX(-1); }
