@@ -23,20 +23,27 @@ export function GuestChip({ g, onOpen, extra, showRing = true }) {
   );
 }
 
-function MiniCard({ g, stage, days, api, dragId, setDragId }) {
+function MiniCard({ g, stage, days, api, dragId, setDragId, marker, setMarker }) {
   const waiting = stage === "Contacted" ? daysSince(g.lastFollowUpAt || g.milestones?.Contacted) : null;
   const scored = typeof g.score === "number";
   const tier = scored ? tierOf(g) : "None";
   return (
     <article
-      className={`kCard tierEdge-${tier}${dragId === g.id ? " dragging" : ""}`}
+      className={`kCard tierEdge-${tier}${dragId === g.id ? " dragging" : ""}${marker?.id === g.id ? (marker.before ? " dropBefore" : " dropAfter") : ""}`}
       draggable
       onDragStart={(e) => {
         setDragId(g.id);
         e.dataTransfer.setData("text/plain", g.id);
         e.dataTransfer.effectAllowed = "move";
       }}
-      onDragEnd={() => setDragId(null)}
+      onDragEnd={() => { setDragId(null); setMarker(null); }}
+      onDragOver={(e) => {
+        if (!dragId || dragId === g.id) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        const before = e.clientY < r.top + r.height / 2;
+        if (marker?.id !== g.id || marker.before !== before) setMarker({ id: g.id, before, stage });
+      }}
+      data-drop={marker?.id === g.id ? (marker.before ? "before" : "after") : undefined}
     >
       <button className="kMain" onClick={() => api.open(g.id)}>
         <GuestPhoto g={g} size={30} />
@@ -68,6 +75,7 @@ function MiniCard({ g, stage, days, api, dragId, setDragId }) {
 export default function Pipeline({ guests, api, settings }) {
   const [dragId, setDragId] = useState(null);
   const [over, setOver] = useState(null);
+  const [marker, setMarker] = useState(null); // { id, before, stage }: where a dragged card will land
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(null); // one stage expanded, or null for all
   const days = settings.followUpDays || 5;
@@ -78,7 +86,42 @@ export default function Pipeline({ guests, api, settings }) {
 
   const nq = q.trim().toLowerCase();
   const shown = nq ? guests.filter((g) => [g.name, g.company, g.role, g.city].join(" ").toLowerCase().includes(nq)) : guests;
-  const byStage = (st) => shown.filter((g) => g.stage === st).sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  // Your own order (set by dragging) first; guests you haven't placed follow, highest score first.
+  const order = (a, b) => {
+    const ra = a.boardRank ?? null, rb = b.boardRank ?? null;
+    if (ra != null && rb != null) return ra - rb;
+    if (ra != null) return -1;
+    if (rb != null) return 1;
+    return (b.score ?? -1) - (a.score ?? -1);
+  };
+  const byStage = (st) => shown.filter((g) => g.stage === st).sort(order);
+  const fullStage = (st) => guests.filter((g) => g.stage === st).sort(order);
+
+  // Put `id` into `stage` at the marker position and number that stage 1, 2, 3…
+  async function place(id, stage) {
+    const g = guests.find((x) => x.id === id);
+    if (!g) return;
+    const list = fullStage(stage).filter((x) => x.id !== id);
+    let at = list.length;
+    if (marker && marker.stage === stage) {
+      const i = list.findIndex((x) => x.id === marker.id);
+      if (i >= 0) at = marker.before ? i : i + 1;
+    }
+    const moved = g.stage !== stage;
+    const placed = marker && marker.stage === stage;
+    if (!moved && !placed) return;
+    list.splice(at, 0, g);
+    if (moved) await api.patch(id, { stage, patch: { boardRank: placed ? at + 1 : null } });
+    if (!placed) return; // dropped on the column, not between cards: keep score order
+    for (let k = 0; k < list.length; k++) {
+      const x = list[k];
+      if (x.id === id && moved) continue;
+      if (x.boardRank !== k + 1) await api.patch(x.id, { patch: { boardRank: k + 1 } });
+    }
+  }
+  async function resetOrder(stage) {
+    for (const x of fullStage(stage)) if (x.boardRank != null) await api.patch(x.id, { patch: { boardRank: null } });
+  }
   const count = (st) => guests.filter((g) => g.stage === st).length;
   const reachedCount = (st) => guests.filter((g) => g.milestones?.[st]).length;
 
@@ -89,8 +132,7 @@ export default function Pipeline({ guests, api, settings }) {
       e.preventDefault();
       setOver(null);
       const id = e.dataTransfer.getData("text/plain") || dragId;
-      const g = guests.find((x) => x.id === id);
-      if (g && g.stage !== stage) api.patch(id, { stage });
+      place(id, stage).finally(() => setMarker(null));
     },
   });
   const cols = focus ? [focus] : STAGES;
@@ -139,6 +181,11 @@ export default function Pipeline({ guests, api, settings }) {
                 <span className={`colDot ${stageClass(stage)}`} aria-hidden />
                 <strong>{stage}</strong>
                 <span className="colCount">{list.length}</span>
+                {list.some((g) => g.boardRank != null) && (
+                  <button className="iconBtn sm" onClick={() => resetOrder(stage)} title="Undo your custom order and sort by score again">
+                    <Icon name="refresh" size={13} />
+                  </button>
+                )}
                 {list.length > 0 && (
                   <button className="iconBtn sm colMenu" onClick={() => api.go("guests", { stage })} title={`Select, move or remove ${stage} guests`}>
                     <Icon name="filter" size={13} />
@@ -146,7 +193,7 @@ export default function Pipeline({ guests, api, settings }) {
                 )}
               </header>
               <div className="colBody">
-                {list.map((g) => <MiniCard key={g.id} g={g} stage={stage} days={days} api={api} dragId={dragId} setDragId={setDragId} />)}
+                {list.map((g) => <MiniCard key={g.id} g={g} stage={stage} days={days} api={api} dragId={dragId} setDragId={setDragId} marker={marker} setMarker={setMarker} />)}
                 {!list.length && <div className="colEmpty">{nq ? "No match" : "Drop here"}</div>}
               </div>
             </section>

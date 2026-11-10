@@ -1142,3 +1142,10 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .epHook { -webkit-line-clamp: 2; min-height: 0; }
 .epWho { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .epActions { margin-top: 0; }
+/* Pipeline: a line shows where a dragged card will land */
+.kCard { position: relative; }
+.kCard.dropBefore::before, .kCard.dropAfter::after { content: ""; position: absolute; left: 6px; right: 6px; height: 3px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); pointer-events: none; z-index: 2; }
+.kCard.dropBefore::before { top: -6px; }
+.kCard.dropAfter::after { bottom: -6px; }
+.kCard[draggable] { cursor: grab; }
+.kCard.dragging { opacity: 0.4; }

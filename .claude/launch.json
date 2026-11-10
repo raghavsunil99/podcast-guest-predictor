@@ -1,6 +1,23 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "invite-app", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 }
+    {
+      "name": "invite-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "demo-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "demo"
+      ],
+      "port": 3100
+    }
   ]
 }
