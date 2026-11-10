@@ -26,7 +26,9 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
   const [done, setDone] = useState(false); // last study finished: show next steps instead of the old inputs
   const [dragOver, setDragOver] = useState(false);
   const [fresh, setFresh] = useState(false);
-  const [mode, setMode] = useState(() => { try { return localStorage.getItem("epi.discoverMode") || "one"; } catch { return "one"; } });
+  const [mode, setMode] = useState("one");
+  // Remembered choice is read in the browser only (the server render has no saved choice).
+  useEffect(() => { try { const m = localStorage.getItem("epi.discoverMode"); if (m) setMode(m); } catch {} }, []);
   const pickMode = (m) => { setMode(m); try { localStorage.setItem("epi.discoverMode", m); } catch {} }; // empty form for the next guest (the last result is still shown)
   const fileRef = useRef(null);
   const saveTimer = useRef(null);
