@@ -1230,3 +1230,35 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .bulkItem.cur { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .bulkItem.st-done { cursor: pointer; }
 .bulkItem.st-dupBatch, .bulkItem.st-skipped { opacity: 0.7; }
+.ytSteps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--text-2); }
+/* YouTube episode stats */
+.ytStats { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--text-2); align-items: center; }
+.ytStats > span { display: inline-flex; align-items: center; gap: 4px; }
+.ytStats.compact { font-size: 12px; justify-content: center; }
+.ytUp { color: #14905f; font-weight: 600; }
+:root[data-theme="dark"] .ytUp { color: #7ff0c2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ytUp { color: #7ff0c2; } }
+.ytSetup { display: flex; gap: 12px; align-items: center; padding: 14px 16px; flex-wrap: wrap; }
+.ytPerf { display: flex; flex-direction: column; gap: 14px; }
+.ytTiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ytTiles > div { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--sunken); min-width: 0; }
+.ytTiles b { font-size: 22px; font-family: var(--mono); }
+.ytTiles .ytTop b { font-family: inherit; font-size: 16px; padding-top: 4px; }
+.ytTiles span { font-size: 12px; color: var(--muted); }
+.ytSortRow select { width: auto; font-size: 13px; padding: 4px 8px; }
+.ytRank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ytRank li { display: flex; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; }
+.ytPos { font-family: var(--mono); font-weight: 600; color: var(--muted); width: 18px; text-align: center; flex-shrink: 0; }
+.ytThumb { position: relative; width: 112px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--sunken); display: grid; place-items: center; flex-shrink: 0; color: var(--muted); }
+.ytThumb img { width: 100%; height: 100%; object-fit: cover; }
+.ytThumb span { position: absolute; right: 4px; bottom: 4px; font-size: 10.5px; font-weight: 600; padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.75); color: #fff; }
+.ytMain { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.ytMain strong { max-width: 100%; }
+.ytNums { display: flex; flex-direction: column; gap: 2px; text-align: right; flex-shrink: 0; font-size: 13px; }
+.ytNums b { font-family: var(--mono); font-size: 15px; }
+.ytTraits { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ytInsight { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+.ytInsight ul { margin: 0; padding-left: 18px; }
+.ytComments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.ytComments p { margin: 2px 0 0; }
+@media (max-width: 900px) { .ytTiles { grid-template-columns: 1fr 1fr; } .ytRank li { flex-wrap: wrap; } .ytNums { text-align: left; } }

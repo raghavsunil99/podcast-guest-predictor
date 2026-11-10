@@ -17,6 +17,7 @@ export default function Settings({ settings, onSave, usage, refreshUsage, guests
         options={[
           { value: "providers", label: "AI providers" },
           { value: "usage", label: "API usage" },
+          { value: "youtube", label: "YouTube" },
           { value: "podcast", label: "Podcast & templates" },
           { value: "workflow", label: "Workflow" },
           { value: "appearance", label: "Appearance" },
@@ -25,6 +26,7 @@ export default function Settings({ settings, onSave, usage, refreshUsage, guests
       />
       {tab === "providers" && <ProvidersPanel providers={providers} refresh={() => { refreshProviders(); refreshUsage(); }} usage={usage} flash={flash} />}
       {tab === "usage" && <UsagePanel usage={usage} onRefresh={refreshUsage} providers={providers} />}
+      {tab === "youtube" && <YouTubeSettings flash={flash} />}
       {tab === "podcast" && <PodcastSettings settings={settings} onSave={onSave} />}
       {tab === "workflow" && <WorkflowSettings settings={settings} onSave={onSave} />}
       {tab === "appearance" && (
@@ -548,5 +550,53 @@ function QuotaRows({ p, models, onSetLimit }) {
         );
       })}
     </div>
+  );
+}
+
+// YouTube Data API key for episode stats (views, likes, comments). Stored encrypted on this computer.
+function YouTubeSettings({ flash }) {
+  const [st, setSt] = useState(null);
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { fetch("/api/youtube", { cache: "no-store" }).then((r) => r.json()).then(setSt).catch(() => setSt({})); }, []);
+  async function post(body) {
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/youtube", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Something went wrong.");
+      setSt(d); return d;
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+  if (!st) return <div className="card pad24 muted">Loading…</div>;
+  return (
+    <section className="card stack16">
+      <div>
+        <h3>YouTube episode stats</h3>
+        <p className="muted small">Shows views, likes and comments for episodes with a YouTube link, and how they grow. Uses a free YouTube Data API key (no sign-in). The key is stored encrypted on this computer and never sent to the browser.</p>
+      </div>
+      {st.hasKey ? (
+        <div className="row gap8 wrap">
+          <span className="health h-good"><span />Key saved {st.keyHint}{st.keySource === "env" ? " (from .env.local)" : ""}</span>
+          <span className="muted small">{st.linked} episode{st.linked === 1 ? "" : "s"} with a YouTube link</span>
+          {st.keySource !== "env" && <button className="btn btnSm" disabled={busy} onClick={() => post({ action: "removeKey" }).then((d) => d && flash?.("YouTube key removed"))}>Remove key</button>}
+        </div>
+      ) : (
+        <ol className="ytSteps">
+          <li>Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer">YouTube Data API v3 in Google Cloud</a> (sign in with any Google account) and click <b>Enable</b>. Create a project first if it asks.</li>
+          <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Credentials</a> → <b>Create credentials</b> → <b>API key</b>, and copy it.</li>
+          <li>Optional but safer: click the key → <b>API restrictions</b> → <b>Restrict key</b> → choose <b>YouTube Data API v3</b> → Save.</li>
+          <li>Paste it below. It's free: the daily allowance (10,000 units) is far more than this app needs.</li>
+        </ol>
+      )}
+      <div className="row gap8 wrap">
+        <input className="grow" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={st.hasKey ? "Paste a new key to replace it" : "Paste your YouTube API key (starts with AIza…)"} />
+        <button className="btn btnPrimary" disabled={busy || !key.trim()} onClick={() => post({ action: "key", key }).then((d) => { if (d) { setKey(""); flash?.("YouTube key saved and working"); } })}>
+          {busy ? <span className="btnSpinner" aria-hidden /> : <Icon name="check" size={15} />}Test & save
+        </button>
+      </div>
+      {err && <div className="alert alertError">{err}</div>}
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Icon from "./icons";
 import PastCompanies from "./PastCompanies";
 import GuestPhoto from "./GuestPhoto";
@@ -8,6 +8,178 @@ import { CompanyName, Drawer, Empty, ViewSwitch, fmtDate, useViewPref } from "./
 import { exportCSV } from "./Guests";
 import EpisodeForm, { episodeLinks } from "./EpisodeForm";
 import { episodeTopic } from "@/lib/crm";
+import { earlyViews, episodeVideoId, growth, viewsByTrait } from "@/lib/youtube";
+
+const fmtN = (n) => (n == null ? "–" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${Math.round(n / 1e3)}K` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
+const fmtDur = (s) => (!s ? "" : s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m` : `${Math.round(s / 60)} min`);
+
+// YouTube stats for episodes, refreshed automatically when older than 6 hours.
+function useYouTube() {
+  const [yt, setYt] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/youtube", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refresh" }) });
+      setYt(await r.json());
+    } catch {} finally { setBusy(false); }
+  };
+  useEffect(() => {
+    fetch("/api/youtube", { cache: "no-store" }).then((r) => r.json()).then((d) => {
+      setYt(d);
+      const stale = !d.fetchedAt || Date.now() - Date.parse(d.fetchedAt) > 6 * 3600 * 1000;
+      if (d.hasKey && d.linked && stale) refresh();
+    }).catch(() => setYt({}));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return { yt, busy, refresh };
+}
+
+// Small "👁 1.2K · 👍 80 · 💬 12 · +340 this week" line for a card.
+function StatLine({ v, compact }) {
+  if (!v || v.missing) return v?.missing ? <span className="ytStats muted tiny">Video not found (private or wrong link)</span> : null;
+  const gr = growth(v, 7);
+  return (
+    <span className={`ytStats${compact ? " compact" : ""}`} title={`${v.views.toLocaleString("en-IN")} views${v.likes != null ? ` · ${v.likes} likes` : ""}${v.comments != null ? ` · ${v.comments} comments` : ""}`}>
+      <span><Icon name="eye" size={13} />{fmtN(v.views)}</span>
+      {!compact && v.likes != null && <span><Icon name="thumbUp" size={13} />{fmtN(v.likes)}</span>}
+      {!compact && v.comments != null && <span><Icon name="comment" size={13} />{fmtN(v.comments)}</span>}
+      {!compact && gr && gr.views > 0 && <span className="ytUp">+{fmtN(gr.views)} this week</span>}
+    </span>
+  );
+}
+
+// Totals, ranking, and which kinds of guests get the most views.
+function Performance({ ordered, yt, busy, refresh, api, onComments }) {
+  const rows = ordered.map(({ g, no }) => ({ g, no, id: episodeVideoId(g.episode), v: yt?.videos?.[episodeVideoId(g.episode)] })).filter((r) => r.id);
+  const live = rows.filter((r) => r.v && !r.v.missing);
+  const [sort, setSort] = useState("views");
+  const traits = useMemo(() => viewsByTrait(live), [live]);
+  if (!rows.length) return null;
+  if (!yt?.hasKey) {
+    return (
+      <div className="card ytSetup">
+        <Icon name="play" size={18} />
+        <span className="grow"><strong>See how your episodes perform on YouTube.</strong> <span className="muted small">{rows.length} episode{rows.length > 1 ? "s have" : " has"} a YouTube link. Add a free YouTube API key to show views, likes, comments and growth.</span></span>
+        <button className="btn btnSm btnPrimary" onClick={() => api.go("settings", { tab: "youtube" })}>Set up</button>
+      </div>
+    );
+  }
+  const total = live.reduce((a, r) => a + r.v.views, 0);
+  const week = live.reduce((a, r) => a + (growth(r.v, 7)?.views || 0), 0);
+  const top = [...live].sort((a, b) => b.v.views - a.v.views)[0];
+  const key = (r) => (sort === "week" ? growth(r.v, 7)?.views ?? -1 : sort === "early" ? earlyViews(r.v, 7) ?? -1 : sort === "likes" ? r.v.likes ?? -1 : r.v.views);
+  const ranked = [...live].sort((a, b) => key(b) - key(a));
+  return (
+    <section className="card ytPerf">
+      <div className="cardHead">
+        <div>
+          <h3><Icon name="trend" size={16} /> Episode performance</h3>
+          <p className="muted small">YouTube views, likes and comments · updated {yt.fetchedAt ? fmtDate(yt.fetchedAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "never"}</p>
+        </div>
+        <button className="btn btnSm" onClick={refresh} disabled={busy}>{busy ? <span className="btnSpinner" aria-hidden /> : <Icon name="refresh" size={13} />}Refresh</button>
+      </div>
+      {yt.error && <div className="alert alertWarn">{yt.error}</div>}
+      <div className="ytTiles">
+        <div><b>{fmtN(total)}</b><span>Total views</span></div>
+        <div><b>{week ? `+${fmtN(week)}` : "–"}</b><span>Views this week</span></div>
+        <div><b>{live.length ? fmtN(Math.round(total / live.length)) : "–"}</b><span>Average per episode</span></div>
+        <div className="ytTop">{top ? <><b className="ellipsis">{top.g.name}</b><span>Top episode · {fmtN(top.v.views)} views</span></> : <><b>–</b><span>Top episode</span></>}</div>
+      </div>
+      {live.length > 0 && (
+        <>
+          <div className="row gap8 wrap ytSortRow">
+            <span className="muted small">Rank by</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="views">All-time views</option>
+              <option value="week">Views this week</option>
+              <option value="early">Views in first 7 days</option>
+              <option value="likes">Likes</option>
+            </select>
+          </div>
+          <ol className="ytRank">
+            {ranked.map((r, i) => {
+              const gr = growth(r.v, 7), ev = earlyViews(r.v, 7);
+              return (
+                <li key={r.id}>
+                  <span className="ytPos">{i + 1}</span>
+                  <a href={`https://youtu.be/${r.id}`} target="_blank" rel="noreferrer" className="ytThumb">
+                    {r.v.thumb ? <img src={r.v.thumb} alt="" /> : <Icon name="play" size={18} />}
+                    {r.v.seconds ? <span>{fmtDur(r.v.seconds)}</span> : null}
+                  </a>
+                  <button className="ytMain" onClick={() => api.open(r.g.id)}>
+                    <strong className="ellipsis">{r.v.title || r.g.name}</strong>
+                    <span className="muted tiny">EP {String(r.no).padStart(2, "0")} · {r.g.name}{r.v.publishedAt ? ` · published ${fmtDate(r.v.publishedAt)}` : ""}</span>
+                  </button>
+                  <span className="ytNums">
+                    <span><b>{fmtN(r.v.views)}</b> views</span>
+                    <span className="muted tiny">{r.v.likes != null ? `${fmtN(r.v.likes)} likes` : "likes hidden"} · {r.v.comments != null ? `${fmtN(r.v.comments)} comments` : "comments off"}</span>
+                    <span className="muted tiny">{gr ? `+${fmtN(gr.views)} this week` : "growth after 2 days of data"}{ev != null ? ` · ${fmtN(ev)} in first week` : ""}</span>
+                  </span>
+                  <button className="btn btnSm" disabled={!r.v.comments} onClick={() => onComments(r)}><Icon name="comment" size={13} />Comments</button>
+                </li>
+              );
+            })}
+          </ol>
+          {traits.length > 0 && (
+            <div className="ytTraits">
+              <span className="eyebrow">Which guests get more views</span>
+              {traits.slice(0, 4).map((t) => (
+                <p key={t.label + t.value} className="small"><strong>{t.value}</strong> <span className="muted">({t.label.toLowerCase()})</span>: {t.times >= 1 ? `${t.times.toFixed(1)}× the average` : `${Math.round(t.times * 100)}% of the average`} · {fmtN(t.avg)} views on {t.views.length} episodes</p>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {rows.length > live.length && <p className="muted tiny">{rows.length - live.length} linked video{rows.length - live.length > 1 ? "s" : ""} not loaded yet{rows.some((r) => r.v?.missing) ? " (one or more look private or have a wrong link)" : ""}.</p>}
+    </section>
+  );
+}
+
+// Latest comments with an AI summary of what viewers liked and asked.
+function CommentsDrawer({ row, onClose, flash }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = async (summarize) => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/youtube", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "comments", id: row.id, summarize }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setData((x) => ({ ...x, ...d, insight: d.insight || x?.insight || row.v.insight }));
+    } catch (e) { flash?.(e.message); } finally { setBusy(false); }
+  };
+  useEffect(() => { load(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const ins = data?.insight || row.v.insight;
+  return (
+    <Drawer onClose={onClose} label="Episode comments">
+      <div className="drawerBody stack16" style={{ padding: 24 }}>
+        <div>
+          <h2>Comments</h2>
+          <p className="muted small">{row.v.title}</p>
+        </div>
+        <div className="card ytInsight">
+          {ins ? (
+            <>
+              <div className="row gap8"><span className="eyebrow">What viewers say</span><span className="tgChip">{ins.sentiment}</span><span className="muted tiny push">from {ins.basedOn} comments</span></div>
+              <p className="small">{ins.summary}</p>
+              {ins.liked?.length > 0 && <><span className="muted tiny">Liked</span><ul className="small">{ins.liked.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+              {ins.questions?.length > 0 && <><span className="muted tiny">Asked for (ideas for future episodes)</span><ul className="small">{ins.questions.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+            </>
+          ) : <p className="muted small">Get a short AI summary of what viewers liked and asked about (1 AI request).</p>}
+          <button className="btn btnSm" disabled={busy || !data?.comments?.length} onClick={() => load(true)}>{busy ? <span className="btnSpinner" aria-hidden /> : <Icon name="sparkle" size={13} />}{ins ? "Summarise again" : "Summarise with AI"}</button>
+        </div>
+        {!data ? <p className="muted small">Loading comments…</p> : (
+          <ul className="ytComments">
+            {(data.comments || []).map((c, i) => (
+              <li key={i}><strong className="small">{c.author}</strong><span className="muted tiny"> · {fmtDate(c.at)}{c.likes ? ` · ${c.likes} likes` : ""}</span><p className="small">{c.text}</p></li>
+            ))}
+            {data.comments?.length === 0 && <p className="muted small">No comments yet.</p>}
+          </ul>
+        )}
+      </div>
+    </Drawer>
+  );
+}
 
 // Episode order: the number you set wins; otherwise episodes are numbered by recording date.
 export function orderEpisodes(guests) {
@@ -20,10 +192,13 @@ export function orderEpisodes(guests) {
     .map((x, i) => ({ g: x.g, no: i + 1 }));
 }
 
-export default function Archive({ guests, api }) {
+export default function Archive({ guests, api, flash }) {
   const [editing, setEditing] = useState(null);
   const [moving, setMoving] = useState(false);
   const [view, setView] = useViewPref("episodes", "cards");
+  const { yt, busy: ytBusy, refresh: ytRefresh } = useYouTube();
+  const [commentsFor, setCommentsFor] = useState(null);
+  const vOf = (g) => yt?.videos?.[episodeVideoId(g.episode)];
   const ordered = orderEpisodes(guests); // oldest → newest
   const shown = [...ordered].reverse();
 
@@ -59,6 +234,9 @@ export default function Archive({ guests, api }) {
         <ViewSwitch value={view} onChange={setView} options={["cards", "grid", "list"]} />
         <button className="btn btnSm" onClick={() => exportCSV(ordered.map((x) => x.g), "recorded-episodes")}><Icon name="download" size={14} />Export</button>
       </div>
+      <Performance ordered={ordered} yt={yt} busy={ytBusy} refresh={ytRefresh} api={api} onComments={setCommentsFor} />
+      {commentsFor && <CommentsDrawer row={commentsFor} onClose={() => setCommentsFor(null)} flash={flash} />}
+
       {view === "list" && (
         <div className="epList card flush">
           {shown.map(({ g, no }) => {
@@ -71,6 +249,7 @@ export default function Archive({ guests, api }) {
                 <div className="epRowMain">
                   <strong className="ellipsis">{ep.title || `Episode with ${g.name}`}</strong>
                   <span className="muted small ellipsis">{g.name} · {g.role}</span>
+                  <StatLine v={vOf(g)} />
                 </div>
                 <span className="epRowCo hideSm"><CompanyName name={g.company} domain={g.companyDomain} /><PastCompanies g={g} variant="logos" size={14} /></span>
                 <span className="muted small hideSm epRowDate">{ep.recordedAt ? fmtDate(ep.recordedAt) : "No date"}</span>
@@ -99,6 +278,7 @@ export default function Archive({ guests, api }) {
                 <strong className="clamp2 epTileName">{g.name}</strong>
                 <span className="epTileCo"><CompanyName name={g.company} domain={g.companyDomain} size={16} /></span>
                 <span className="epTilePast"><PastCompanies g={g} variant="logos" size={15} /></span>
+                <StatLine v={vOf(g)} compact />
                 <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : ep.recordedAt ? fmtDate(ep.recordedAt) : "Recorded"}</span>
               </div>
             );
@@ -136,6 +316,7 @@ export default function Archive({ guests, api }) {
                 <CompanyName name={g.company} domain={g.companyDomain} />
                 <div className="epPast"><PastCompanies g={g} max={2} /></div>
                 </div>
+                <StatLine v={vOf(g)} />
                 <div className="row gap8 epActions wrap" onClick={(e) => e.stopPropagation()}>
                   {links.length ? (
                     links.map((l) => (

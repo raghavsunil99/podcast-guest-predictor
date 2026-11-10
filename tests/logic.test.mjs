@@ -492,3 +492,34 @@ test("corrections teach future studies with the same surname", () => {
   assert.ok(sure.result.warnings.some((w) => /Check the language/.test(w)));
   assert.match(hintsForPrompt(hints), /Sai Kondapalli: not Tamil, Telugu/);
 });
+
+// ---------- YouTube episode stats ----------
+import { addSnapshot, earlyViews, episodeVideoId, growth, isoSeconds, videoIdFrom, viewsByTrait } from "../lib/youtube.js";
+
+test("YouTube links of every common shape give the video id", () => {
+  for (const u of ["https://youtu.be/6qk1N1X6FaM", "youtu.be/6qk1N1X6FaM?si=abc", "https://www.youtube.com/watch?v=6qk1N1X6FaM&t=30", "https://youtube.com/shorts/6qk1N1X6FaM", "https://www.youtube.com/live/6qk1N1X6FaM"])
+    assert.equal(videoIdFrom(u), "6qk1N1X6FaM", u);
+  assert.equal(videoIdFrom("https://open.spotify.com/episode/x"), "");
+  assert.equal(episodeVideoId({ links: { youtube: "youtu.be/6qk1N1X6FaM" } }), "6qk1N1X6FaM");
+  assert.equal(episodeVideoId({ link: "https://youtu.be/6qk1N1X6FaM" }), "6qk1N1X6FaM", "older single link field");
+  assert.equal(isoSeconds("PT1H2M3S"), 3723);
+});
+
+test("daily snapshots give weekly growth and first-week views", () => {
+  let v = { publishedAt: "2026-11-01T10:00:00Z" };
+  v = addSnapshot(v, { views: 100, likes: 5, comments: 1 }, "2026-11-02");
+  v = addSnapshot(v, { views: 400, likes: 9, comments: 3 }, "2026-11-06");
+  v = addSnapshot(v, { views: 450, likes: 9, comments: 3 }, "2026-11-06"); // same day: latest wins
+  v = addSnapshot(v, { views: 900, likes: 20, comments: 7 }, "2026-11-12");
+  assert.equal(v.snapshots.length, 3);
+  assert.equal(v.views, 900);
+  assert.deepEqual(growth(v, 7, "2026-11-12"), { views: 800, since: "2026-11-02" });
+  assert.equal(earlyViews(v, 7), 450);
+});
+
+test("views by guest trait need 2+ episodes per group", () => {
+  const row = (tags, views) => ({ g: { careerTags: tags }, v: { views } });
+  const out = viewsByTrait([row(["Service → Product"], 3000), row(["Service → Product"], 1000), row([], 200), row([], 200)]);
+  assert.equal(out[0].value, "Service → Product");
+  assert.ok(out[0].times > 1.5);
+});

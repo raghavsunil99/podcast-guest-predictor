@@ -164,6 +164,7 @@ export default function App() {
   }, [flash]);
 
   const go = useCallback((id, params = null) => {
+    if (id === "settings" && params?.tab) setSettingsTab(params.tab);
     setViewParams(params);
     setView(id);
     setNavOpen(false);
@@ -297,7 +298,7 @@ export default function App() {
             {view === "companies" && <Companies {...props} />}
             {view === "targets" && <Targets {...props} flash={flash} onUsageChange={refreshUsage} />}
             {view === "recommendations" && <Recommendations {...props} model={model} flash={flash} onUsageChange={refreshUsage} />}
-            {view === "archive" && <Archive {...props} />}
+            {view === "archive" && <Archive {...props} flash={flash} />}
             {view === "settings" && (
               <Settings
                 settings={settings}
