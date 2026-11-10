@@ -18,6 +18,20 @@
         "demo"
       ],
       "port": 3100
+    },
+    {
+      "name": "check-app",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "-p",
+        "3200"
+      ],
+      "env": {
+        "NEXT_DIST_DIR": ".next-check"
+      },
+      "port": 3200
     }
   ]
 }

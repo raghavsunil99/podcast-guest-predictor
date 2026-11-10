@@ -6,7 +6,7 @@ import GuestPhoto from "./GuestPhoto";
 import { Avatar, CompanyLogo, Empty, ScoreRing, timeAgo } from "./ui";
 import { GuestChip } from "./Pipeline";
 import { groupCompanies } from "@/lib/crm";
-import { nextBest, similarProfiles, successProfile } from "@/lib/learning";
+import { evaluate, nextBest, similarProfiles, successProfile } from "@/lib/learning";
 
 const liSearch = (kw) => `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(kw)}`;
 
@@ -27,6 +27,7 @@ export default function Recommendations({ guests, api, settings, model, onUsageC
   const best = useMemo(() => nextBest(guests, 6), [guests]);
   const similar = useMemo(() => similarProfiles(guests, 6), [guests]);
   const profile = useMemo(() => successProfile(model), [model]);
+  const acc = useMemo(() => evaluate(guests), [guests]);
   const dense = useMemo(
     () => groupCompanies(guests).filter((c) => c.guests >= 2 && c.open > 0).sort((a, b) => b.open * (b.avgScore || 50) - a.open * (a.avgScore || 50)).slice(0, 4),
     [guests]
@@ -112,7 +113,7 @@ export default function Recommendations({ guests, api, settings, model, onUsageC
           <div>
             <h3><Icon name="brain" size={16} /> What your successful guests have in common</h3>
             <p className="muted small">
-              Learned from {o.yes} accepted or recorded and {o.no} rejected or unanswered guest{o.yes + o.no === 1 ? "" : "s"}
+              Learned from {o.yes} accepted or recorded, {o.rejected} who replied but said no, and {o.noReply} who never replied
               {o.feedback ? `, plus ${o.feedback} relevance rating${o.feedback === 1 ? "" : "s"}` : ""}. Scores across the app include this learning.
             </p>
           </div>
@@ -148,6 +149,32 @@ export default function Recommendations({ guests, api, settings, model, onUsageC
               </ul>
             </div>
           </div>
+        )}
+      </section>
+
+      <section className="card accCard">
+        <div className="cardHead">
+          <div>
+            <h3><Icon name="target" size={16} /> How well the predictions work</h3>
+            <p className="muted small">Tested on your past guests, each with their own outcome hidden: how often a guest who said yes scored higher than one who didn&apos;t.</p>
+          </div>
+        </div>
+        {acc.aiOnly == null ? (
+          <p className="muted small">
+            Needs at least one yes and one no (a rejection or no reply) to measure. You have {acc.yes} yes and {acc.no} no so far.
+          </p>
+        ) : (
+          <>
+            <div className="accBars">
+              <div className="accRow"><span>AI score only</span><span className="accTrack"><span style={{ width: `${acc.aiOnly}%` }} /></span><b>{acc.aiOnly}%</b></div>
+              <div className="accRow"><span>With learning</span><span className="accTrack learned"><span style={{ width: `${acc.withLearning}%` }} /></span><b>{acc.withLearning}%</b></div>
+            </div>
+            <p className="muted small">
+              50% is a coin toss, 100% is perfect.{" "}
+              {acc.withLearning > acc.aiOnly ? `Learning from outcomes improves the ranking by ${acc.withLearning - acc.aiOnly} points.` : acc.withLearning < acc.aiOnly ? "Learning isn't helping yet; it gets stronger as more outcomes are recorded." : "Learning hasn't changed the ranking yet."}{" "}
+              Based on {acc.yes} yes and {acc.no} no{acc.no < 6 ? ". With so few no's this is a rough guide; mark guests Rejected or Not responded to sharpen it." : "."}
+            </p>
+          </>
         )}
       </section>
 

@@ -394,3 +394,44 @@ test("invite hook becomes an episode topic", async () => {
   assert.equal(episodeTopic("His evolution from NLP to Agentic AI"), "Evolution from NLP to Agentic AI");
   assert.equal(episodeTopic("Founding the Thanjavur Marathi Language Platform"), "Founding the Thanjavur Marathi Language Platform");
 });
+
+// ---------- learning: reply vs yes, silence, accuracy ----------
+import { evaluate, outcomeOf as outcome2, SILENCE_DAYS } from "../lib/learning.js";
+
+test("outcomes split into 'did they reply' and 'did they say yes'", () => {
+  const now = Date.parse("2026-11-20T00:00:00Z");
+  const g = (stage, contacted) => ({ id: stage, name: stage, stage, milestones: { Contacted: contacted || "2026-11-01T00:00:00Z" } });
+  assert.deepEqual(pick(outcome2(g("Rejected"), now)), { reply: 1, yes: 0 });
+  assert.deepEqual(pick(outcome2(g("Not responded"), now)), { reply: 0, yes: null });
+  assert.deepEqual(pick(outcome2(g("Responded"), now)), { reply: 1, yes: null });
+  assert.equal(outcome2(g("Contacted", "2026-11-18T00:00:00Z"), now), null, "2 days of silence is too early to judge");
+  const quiet = outcome2(g("Contacted", "2026-11-05T00:00:00Z"), now);
+  assert.equal(quiet.reply, 0);
+  assert.ok(quiet.rw > 0.3 && quiet.rw <= 0.6, `silence weight ${quiet.rw}`);
+  assert.equal(SILENCE_DAYS, 7);
+  function pick(o) { return { reply: o.reply, yes: o.yes }; }
+});
+
+test("no-reply teaches reachability, rejection teaches fit", () => {
+  const mk = (id, role, stage, posting) => guest({ id, role, company: `C${id}`, industry: "Software", exp: "6 years", skills: ["Backend"], score: 60, stage, sig: { posting } });
+  const all = [
+    mk("a", "Senior Engineer", "Recorded", 9), mk("b", "Senior Engineer", "Accepted", 8),
+    mk("c", "Senior Engineer", "Not responded", 1), mk("d", "Senior Engineer", "Not responded", 2),
+    mk("e", "Director of Engineering", "Rejected", 9),
+  ];
+  const m = buildModel(all);
+  const quietPoster = applyLearning(mk("x", "Senior Engineer", "Discovered", 1), m).learning;
+  const activePoster = applyLearning(mk("y", "Senior Engineer", "Discovered", 9), m).learning;
+  assert.ok(activePoster.adjust > quietPoster.adjust, `${activePoster.adjust} vs ${quietPoster.adjust}`);
+  assert.ok(quietPoster.reasons.some((r) => r.q === "reply" && r.dir === "down"), "explains low reply chance");
+  assert.ok(activePoster.replyChance > quietPoster.replyChance);
+});
+
+test("accuracy check compares AI-only ranking with learned ranking", () => {
+  const s = scenario();
+  const r = evaluate(s.all);
+  assert.equal(r.yes, 2);
+  assert.equal(r.no, 2);
+  assert.ok(r.aiOnly >= 0 && r.aiOnly <= 100);
+  assert.ok(r.withLearning >= 0 && r.withLearning <= 100);
+});

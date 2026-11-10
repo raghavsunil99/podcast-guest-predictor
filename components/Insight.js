@@ -29,11 +29,26 @@ function LearnedPanel({ learning, onOpenGuest }) {
           AI {learning.base} {a >= 0 ? "+" : "−"} {Math.abs(a)} = <b>{Math.max(0, Math.min(100, learning.base + a))}</b>
         </span>
       </div>
+      <div className="twoQ">
+        <div>
+          <span className="muted tiny">Chance they reply</span>
+          <b>{learning.replyChance != null ? `~${learning.replyChance}%` : "—"}</b>
+          <span className="muted tiny">{learning.basis ? `${learning.basis.replied} replied · ${learning.basis.silent} stayed silent` : ""}</span>
+        </div>
+        <div>
+          <span className="muted tiny">Chance of yes if they reply</span>
+          <b>{learning.yesIfReply != null ? `~${learning.yesIfReply}%` : "—"}</b>
+          <span className="muted tiny">
+            {learning.basis ? (learning.basis.saidNo ? `${learning.basis.saidYes} said yes · ${learning.basis.saidNo} said no` : `No one has said no yet, so this can't be learned`) : ""}
+          </span>
+        </div>
+      </div>
       {learning.reasons.length > 0 ? (
         <ul className="learnedReasons">
           {learning.reasons.map((r, i) => (
             <li key={i} className={r.dir}>
               <Icon name={r.dir === "up" ? "arrowUp" : "arrowDown"} size={13} />
+              <span className={`qTag q-${r.q}`}>{r.q === "reply" ? "Reply" : "Yes"}</span>
               {r.text}
             </li>
           ))}
@@ -52,7 +67,7 @@ function LearnedPanel({ learning, onOpenGuest }) {
         </div>
       )}
       <p className="muted tiny">
-        Based on {learning.learnedFrom} guest outcome{learning.learnedFrom === 1 ? "" : "s"}. Adjustments are capped at ±15 and grow as more outcomes are recorded. Native language and region are not used.
+        Based on {learning.learnedFrom} guest outcome{learning.learnedFrom === 1 ? "" : "s"}. Learns separately from silence (no reply) and from a no after replying. Contacted guests with no reply for a week start counting as silence. Adjustments are capped at ±15 and get stronger as more no's are recorded. Native language and region are not used.
       </p>
     </div>
   );
