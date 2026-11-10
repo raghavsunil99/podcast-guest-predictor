@@ -21,7 +21,15 @@ Free-plan limits to keep in mind:
 ## Steps
 
 ### Part 1: in the code (Claude does this)
-1. **Add a password login** so only you can open the app (one password set as `APP_PASSWORD`; signed session cookie; every page and API protected).
+1. **Two kinds of access:**
+   - **Admin (login with `APP_PASSWORD`):** the full app (studying profiles, editing, pipeline, settings, keys). Every change needs this login.
+   - **Public view-only page (no login), e.g. `/guests`:** a clean, read-only showcase page for anyone with the link.
+     - **Upcoming guests:** the Accepted stage, with photo, name, role, company logo, previous companies, episode topic and recording date if set.
+     - **Recorded and published episodes:** with YouTube links and view counts.
+     - **Never shown publicly:** contact details, prediction scores, invite messages, notes, language guesses, rejected or not-contacted guests, AI and YouTube keys.
+     - **Show / hide per guest:** a switch in the admin app (default **hidden** until you turn it on), so a guest only appears after they agree to be announced.
+     - Optional: page title and short intro text editable in Settings.
+   - The public page reads from a separate read-only API that returns only those safe fields; every other API stays behind the login.
 2. **Prepare for Vercel:**
    - set `maxDuration` to 300 s
    - show a clear message for PDFs over 4.5 MB
@@ -46,9 +54,10 @@ Free-plan limits to keep in mind:
    - run `node --env-file=.env.local scripts/migrate-to-db.mjs`
    - it copies guests, photos and settings from the `data/` folder
 9. **Deploy:** click Deploy in Vercel (later pushes deploy automatically).
-10. **Check:** log in at the Vercel link, open Guests, Pipeline and Recorded, study one profile, refresh YouTube stats.
+10. **Check:** open the public page without logging in (only upcoming/published guests you switched on, no private fields), then log in at the Vercel link, open Guests, Pipeline and Recorded, study one profile, refresh YouTube stats.
 
 ### After going live
+- Share the public page link (e.g. `podcast-guest-predictor.vercel.app/guests`) on WhatsApp or LinkedIn; keep the admin login to yourself.
 - The app's address will be like `podcast-guest-predictor.vercel.app` (a custom domain is optional and free if you own one).
 - Keep the local copy as a backup; with `DATABASE_URL` in `.env.local`, the local app and the live app share the same data.
 - Never commit `.env.local`; secrets live only in Vercel's settings and on the Mac.
