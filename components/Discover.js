@@ -4,8 +4,10 @@
 // saved to the pipeline automatically (duplicates are merged with the existing guest).
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
+import { studyOne } from "./studyOne";
+import BulkStudy from "./BulkStudy";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyName, StageBadge } from "./ui";
+import { Avatar, CompanyName, Segmented, StageBadge } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 
 export default function Discover({ settings, api, guests, onUsageChange, providers = [], flash, openProviders }) {
@@ -23,7 +25,9 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
   const [saved, setSaved] = useState(null); // { id, duplicate }
   const [done, setDone] = useState(false); // last study finished: show next steps instead of the old inputs
   const [dragOver, setDragOver] = useState(false);
-  const [fresh, setFresh] = useState(false); // empty form for the next guest (the last result is still shown)
+  const [fresh, setFresh] = useState(false);
+  const [mode, setMode] = useState(() => { try { return localStorage.getItem("epi.discoverMode") || "one"; } catch { return "one"; } });
+  const pickMode = (m) => { setMode(m); try { localStorage.setItem("epi.discoverMode", m); } catch {} }; // empty form for the next guest (the last result is still shown)
   const fileRef = useRef(null);
   const saveTimer = useRef(null);
 
@@ -40,34 +44,15 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
     }
     setLoading(true);
     try {
-      const fd = new FormData();
-      fd.append("url", inp.url.trim());
-      fd.append("profileText", inp.profileText);
-      fd.append("honorific", inp.honorific);
-      fd.append("extraInstructions", inp.extra);
-      fd.append("nativeGreeting", nativeGreeting ? "yes" : "no");
-      fd.append("settings", JSON.stringify(settings));
-      if (providerId) fd.append("provider", providerId);
-      if (inp.pdf) fd.append("pdf", inp.pdf);
-      const res = await fetch("/api/generate", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({ error: "Unexpected server response." }));
-      if (!res.ok || data.error) {
-        setErrorInfo({ code: data.code, providerId: data.providerId });
-        throw new Error(data.error || "Something went wrong.");
-      }
-      const { pdfPhoto, ...clean } = data;
-      setResult(clean);
-      if (data.ai?.notice) flash?.(data.ai.notice);
-      const out = await api.save(clean, inp.url.trim());
+      const r = await studyOne({ inp, settings, providerId, nativeGreeting, api });
+      setResult(r.result);
+      if (r.notice) flash?.(r.notice);
       setFresh(false);
       setDone(true); // show the "what next" panel instead of the filled-in form
-      setSaved(out ? { id: out.guest.id, duplicate: out.duplicate } : null);
-      // Profile photo found inside the PDF: use it unless you've already set a photo for this guest.
-      if (out && pdfPhoto && !out.guest.photoUrl) {
-        await api.patch(out.guest.id, { patch: { photoUrl: pdfPhoto } });
-        flash?.("Profile photo added from the PDF");
-      }
+      setSaved(r.guest ? { id: r.guest.id, duplicate: r.duplicate } : null);
+      if (r.photoAdded) flash?.("Profile photo added from the PDF");
     } catch (err) {
+      if (err.code) setErrorInfo({ code: err.code, providerId: err.providerId });
       setError(err.message);
     } finally {
       setLoading(false);
@@ -110,7 +95,23 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
   const contact = result?.contact || {};
   const hasContact = contact.email || contact.phone || contact.website;
 
+  const modeSwitch = (
+    <div className="discoverMode">
+      <Segmented value={mode} onChange={pickMode} options={[{ value: "one", label: "One profile" }, { value: "bulk", label: "Bulk study" }]} />
+    </div>
+  );
+  if (mode === "bulk") {
+    return (
+      <div className="stack16">
+        {modeSwitch}
+        <BulkStudy settings={settings} api={api} guests={guests} providers={providers} flash={flash} onUsageChange={onUsageChange} />
+      </div>
+    );
+  }
+
   return (
+    <div className="stack16">
+    {modeSwitch}
     <div className="discover">
       {done && result && !loading ? (
         <div
@@ -356,6 +357,7 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
           </div>
         )}
       </section>
+    </div>
     </div>
   );
 }

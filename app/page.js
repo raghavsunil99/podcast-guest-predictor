@@ -10,6 +10,7 @@ import Companies from "@/components/Companies";
 import Recommendations from "@/components/Recommendations";
 import Archive from "@/components/Archive";
 import Targets from "@/components/Targets";
+import { BulkBadge } from "@/components/BulkStudy";
 import { PhotoProvider } from "@/components/GuestPhoto";
 import { DomainsProvider } from "@/components/PastCompanies";
 import Settings from "@/components/Settings";
@@ -247,6 +248,7 @@ export default function App() {
             <button key={n.id} className={`navItem${view === n.id ? " active" : ""}`} onClick={() => go(n.id)} aria-current={view === n.id ? "page" : undefined}>
               <Icon name={n.icon} size={18} />
               <span>{n.label}</span>
+              {n.id === "discover" && <BulkBadge />}
               {n.id === "guests" && guests.length > 0 && <span className="navCount">{guests.length}</span>}
               {n.id === "pipeline" && dueCount > 0 && <span className="navCount alert" title={`${dueCount} follow-ups due`}>{dueCount}</span>}
               {n.id === "archive" && recordedCount > 0 && <span className="navCount">{recordedCount}</span>}
