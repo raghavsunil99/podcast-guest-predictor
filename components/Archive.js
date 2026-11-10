@@ -73,7 +73,7 @@ function Performance({ ordered, yt, busy, refresh, api, onComments }) {
     <section className="card ytPerf">
       <div className="cardHead">
         <div>
-          <h3><Icon name="trend" size={16} /> Episode performance</h3>
+          <h3><Icon name="trend" size={16} /> Podcast performance</h3>
           <p className="muted small">YouTube views, likes and comments · updated {yt.fetchedAt ? fmtDate(yt.fetchedAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "never"}</p>
         </div>
         <button className="btn btnSm" onClick={refresh} disabled={busy}>{busy ? <span className="btnSpinner" aria-hidden /> : <Icon name="refresh" size={13} />}Refresh</button>
