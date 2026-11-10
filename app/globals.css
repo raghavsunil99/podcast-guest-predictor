@@ -1149,3 +1149,16 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .kCard.dropAfter::after { bottom: -6px; }
 .kCard[draggable] { cursor: grab; }
 .kCard.dragging { opacity: 0.4; }
+/* Discover: what to do after a study */
+.doneCard { display: flex; flex-direction: column; gap: 16px; transition: border-color 0.15s, box-shadow 0.15s; }
+.doneCard.over { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.doneHead { display: flex; gap: 12px; align-items: flex-start; }
+.doneHead h2 { font-size: 18px; }
+.doneTick { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: color-mix(in srgb, #2fd998 20%, transparent); color: #1a9e6c; }
+.doneActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.nextDrop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 26px 16px; border: 1.5px dashed var(--border-strong); border-radius: 12px; color: var(--muted); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.nextDrop:hover, .doneCard.over .nextDrop { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.nextDrop strong { color: var(--text); font-size: 14px; }
+.nextDrop small { font-size: 12px; }
+.nextDrop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.doneEdit { align-self: center; }

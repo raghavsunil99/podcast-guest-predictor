@@ -21,30 +21,34 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [saved, setSaved] = useState(null); // { id, duplicate }
+  const [done, setDone] = useState(false); // last study finished: show next steps instead of the old inputs
+  const [dragOver, setDragOver] = useState(false);
+  const [fresh, setFresh] = useState(false); // empty form for the next guest (the last result is still shown)
   const fileRef = useRef(null);
   const saveTimer = useRef(null);
 
   const guest = saved ? guests.find((g) => g.id === saved.id) : null;
 
-  async function generate(e) {
-    e?.preventDefault();
+  async function generate(e, next) {
+    e?.preventDefault?.();
+    const inp = next || { url, profileText, pdf, extra, honorific };
     setError("");
     setErrorInfo(null);
-    if (!url.trim() && !profileText.trim() && !pdf) {
+    if (!inp.url.trim() && !inp.profileText.trim() && !inp.pdf) {
       setError("Add a LinkedIn URL, paste the profile text, or upload the profile PDF.");
       return;
     }
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append("url", url.trim());
-      fd.append("profileText", profileText);
-      fd.append("honorific", honorific);
-      fd.append("extraInstructions", extra);
+      fd.append("url", inp.url.trim());
+      fd.append("profileText", inp.profileText);
+      fd.append("honorific", inp.honorific);
+      fd.append("extraInstructions", inp.extra);
       fd.append("nativeGreeting", nativeGreeting ? "yes" : "no");
       fd.append("settings", JSON.stringify(settings));
       if (providerId) fd.append("provider", providerId);
-      if (pdf) fd.append("pdf", pdf);
+      if (inp.pdf) fd.append("pdf", inp.pdf);
       const res = await fetch("/api/generate", { method: "POST", body: fd });
       const data = await res.json().catch(() => ({ error: "Unexpected server response." }));
       if (!res.ok || data.error) {
@@ -54,7 +58,9 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
       const { pdfPhoto, ...clean } = data;
       setResult(clean);
       if (data.ai?.notice) flash?.(data.ai.notice);
-      const out = await api.save(clean, url.trim());
+      const out = await api.save(clean, inp.url.trim());
+      setFresh(false);
+      setDone(true); // show the "what next" panel instead of the filled-in form
       setSaved(out ? { id: out.guest.id, duplicate: out.duplicate } : null);
       // Profile photo found inside the PDF: use it unless you've already set a photo for this guest.
       if (out && pdfPhoto && !out.guest.photoUrl) {
@@ -78,6 +84,19 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
   }
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
+  // Start fresh for the next guest (the last result stays visible on the right until then).
+  function studyNext(file) {
+    clearInputs();
+    setDone(false);
+    setFresh(true);
+    setError("");
+    if (file) {
+      setPdf(file);
+      generate(null, { url: "", profileText: "", pdf: file, extra: "", honorific: "auto" });
+    }
+  }
+  const pdfFrom = (list) => [...(list || [])].find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+
   function clearInputs() {
     setUrl("");
     setProfileText("");
@@ -93,6 +112,45 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
 
   return (
     <div className="discover">
+      {done && result && !loading ? (
+        <div
+          className={`card discoverForm doneCard${dragOver ? " over" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = pdfFrom(e.dataTransfer.files); if (f) studyNext(f); }}
+        >
+          <div className="doneHead">
+            <span className="doneTick"><Icon name="check" size={18} /></span>
+            <div className="grow">
+              <h2>{result.profile?.fullName || "Profile"} studied</h2>
+              <p className="muted small">
+                {saved?.duplicate ? "Already in your guests, so their record was updated" : "Saved to your guests as Discovered"}
+                {typeof guest?.score === "number" ? ` · prediction ${guest.score}/100` : ""}
+              </p>
+            </div>
+          </div>
+
+          <div className="doneActions">
+            {guest && guest.stage === "Discovered" && (
+              <button type="button" className="btn" onClick={() => api.patch(guest.id, { stage: "Shortlisted" })}><Icon name="thumbUp" size={15} />Shortlist</button>
+            )}
+            {guest && <button type="button" className="btn" onClick={() => api.open(guest.id)}><Icon name="users" size={15} />Open guest</button>}
+            <button type="button" className="btn" onClick={() => { setDone(false); generate(); }}><Icon name="refresh" size={15} />Study again</button>
+          </div>
+
+          <label className="nextDrop">
+            <input type="file" accept="application/pdf" onChange={(e) => { const f = pdfFrom(e.target.files); e.target.value = ""; if (f) studyNext(f); }} />
+            <Icon name="upload" size={22} />
+            <strong>Drop the next profile PDF here</strong>
+            <small>It starts studying straight away, with the same settings</small>
+          </label>
+
+          <button type="button" className="btn btnPrimary btnLg" onClick={() => studyNext()}>
+            <Icon name="plus" size={17} />Study next profile (paste URL or text)
+          </button>
+          <button type="button" className="linkBtn small doneEdit" onClick={() => setDone(false)}>Change this profile&apos;s inputs</button>
+        </div>
+      ) : (
       <form className="card discoverForm" onSubmit={generate}>
         <div className="cardHead">
           <div>
@@ -120,11 +178,11 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
         </label>
 
         <label className={`dropzone${pdf ? " hasFile" : ""}`}>
-          <input ref={fileRef} type="file" accept="application/pdf" onChange={(e) => setPdf(e.target.files?.[0] || null)} />
+          <input ref={fileRef} type="file" accept="application/pdf" onChange={(e) => setPdf(pdfFrom(e.target.files) || null)} />
           <Icon name={pdf ? "check" : "upload"} size={18} />
           <span>
             <strong>{pdf ? pdf.name : "Or upload the profile PDF"}</strong>
-            <small>{pdf ? "Ready to study" : "Open their LinkedIn page → ⌘P → Save as PDF (includes photo)"}</small>
+            <small>{pdf ? "Ready to study · drop another PDF to replace it" : "Open their LinkedIn page → ⌘P → Save as PDF (includes photo)"}</small>
           </span>
         </label>
 
@@ -183,11 +241,12 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
         <div className="row gap8">
           <button type="submit" className="btn btnPrimary btnLg grow" disabled={loading}>
             {loading ? <span className="btnSpinner" aria-hidden /> : <Icon name="discover" size={17} />}
-            {loading ? "Studying profile…" : result ? "Study again" : "Study profile"}
+            {loading ? "Studying profile…" : result && !fresh ? "Study again" : "Study profile"}
           </button>
           <button type="button" className="btn btnLg" onClick={clearInputs} disabled={loading}>Clear</button>
         </div>
       </form>
+      )}
 
       <section className="discoverResult">
         {!result && !loading && (
