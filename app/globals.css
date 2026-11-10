@@ -1262,3 +1262,12 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .ytComments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .ytComments p { margin: 2px 0 0; }
 @media (max-width: 900px) { .ytTiles { grid-template-columns: 1fr 1fr; } .ytRank li { flex-wrap: wrap; } .ytNums { text-align: left; } }
+/* Make YouTube stats easy to spot */
+.ytStats:not(.compact) { align-self: flex-start; padding: 5px 10px; border-radius: 9px; background: color-mix(in srgb, #ff0033 9%, var(--sunken)); border: 1px solid color-mix(in srgb, #ff0033 22%, transparent); color: var(--text); font-weight: 500; }
+.ytStats:not(.compact) svg { color: #ff3355; }
+.ytStats.compact { padding: 2px 8px; border-radius: 7px; background: color-mix(in srgb, #ff0033 9%, var(--sunken)); color: var(--text); font-weight: 500; }
+.ytStats.compact svg { color: #ff3355; }
+.ytPerf { border-color: color-mix(in srgb, #ff0033 30%, var(--border)); background: linear-gradient(180deg, color-mix(in srgb, #ff0033 6%, var(--surface)), var(--surface) 140px); }
+.ytPerf .cardHead h3 svg { color: #ff3355; }
+.ytTiles > div:first-child { background: color-mix(in srgb, #ff0033 12%, var(--sunken)); }
+.ytTiles > div:first-child b { color: var(--text); }
