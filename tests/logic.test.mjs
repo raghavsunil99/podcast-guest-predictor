@@ -93,7 +93,7 @@ test("analytics counts the funnel and conversion", () => {
   assert.equal(a.contacted, 3);
   assert.equal(a.recorded, 1);
   assert.equal(a.conversion, 0.25);
-  assert.equal(a.inPipeline, 2);
+  assert.equal(a.inPipeline, 3, "a recorded episode is still in production until published");
 });
 
 test("follow-up is due after the configured days without reply", () => {
@@ -522,4 +522,32 @@ test("views by guest trait need 2+ episodes per group", () => {
   const out = viewsByTrait([row(["Service → Product"], 3000), row(["Service → Product"], 1000), row([], 200), row([], 200)]);
   assert.equal(out[0].value, "Service → Product");
   assert.ok(out[0].times > 1.5);
+});
+
+// ---------- Production stages ----------
+import { isRecorded, migrateStages as migrate2, PRODUCTION_STAGES } from "../lib/crm.js";
+
+test("production stages: later stages still count as recorded; Published syncs the switch", () => {
+  assert.deepEqual(PRODUCTION_STAGES, ["Accepted", "Scheduled", "Recorded", "Editing", "Ready to publish", "Published"]);
+  const ed = applyStage(guest(), "Editing");
+  assert.ok(ed.milestones.Recorded && ed.milestones.Accepted && ed.milestones.Scheduled);
+  assert.ok(isRecorded(ed));
+  assert.ok(ed.episode.recordedAt, "recording date filled in");
+  const pub = applyStage(ed, "Published");
+  assert.equal(pub.episode.published, true);
+  assert.ok(pub.episode.publishedAt);
+  const back = applyStage(pub, "Editing");
+  assert.equal(back.episode.published, false);
+  const cancelled = applyStage(applyStage(guest(), "Scheduled"), "Cancelled");
+  assert.ok(cancelled.milestones.Accepted, "they still said yes");
+  assert.ok(!isRecorded(cancelled));
+  assert.equal(analytics([applyStage(guest(), "Published")]).inPipeline, 0);
+});
+
+test("existing recorded episodes marked published move to the Published stage", () => {
+  const g = { ...applyStage(guest(), "Recorded"), episode: { recordedAt: "2026-11-08", published: true, publishedAt: "2026-11-10" } };
+  const m = migrate2(g);
+  assert.equal(m.stage, "Published");
+  assert.ok(m.milestones.Recorded && m.milestones.Published);
+  assert.equal(migrate2(applyStage(guest(), "Recorded")).stage, "Recorded", "unpublished stays Recorded");
 });

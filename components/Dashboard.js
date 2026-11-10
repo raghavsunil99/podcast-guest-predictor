@@ -232,6 +232,8 @@ export default function Dashboard({ guests, api, settings }) {
           )}
         </section>
 
+        <UpcomingCard guests={guests} api={api} />
+
         <TopTargets api={api} />
 
         <section className="card">
@@ -310,6 +312,54 @@ function TopTargets({ api }) {
         </>
       ) : (
         <button className="btn btnSm" onClick={() => api.go("targets")}><Icon name="sparkle" size={14} />Get AI company suggestions</button>
+      )}
+    </section>
+  );
+}
+
+// Next recordings, plus production nudges (no date yet, long in editing, live but not shared).
+function UpcomingCard({ guests, api }) {
+  const now = Date.now();
+  const day = (iso) => {
+    const d = new Date(iso), t = new Date();
+    const diff = Math.round((new Date(d.toDateString()) - new Date(t.toDateString())) / 86400000);
+    const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    return diff === 0 ? `Today, ${time}` : diff === 1 ? `Tomorrow, ${time}` : `${d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}, ${time}`;
+  };
+  const upcoming = guests
+    .filter((g) => g.stage === "Scheduled" && g.episode?.scheduledAt && Date.parse(g.episode.scheduledAt) > now - 3 * 3600000)
+    .sort((a, b) => Date.parse(a.episode.scheduledAt) - Date.parse(b.episode.scheduledAt));
+  const nudges = [];
+  for (const g of guests) {
+    const ep = g.episode || {};
+    if (g.stage === "Accepted" && !ep.scheduledAt) nudges.push({ g, text: "Said yes, set a recording date", icon: "calendar" });
+    if (g.stage === "Scheduled" && ep.scheduledAt && Date.parse(ep.scheduledAt) < now - 3 * 3600000) nudges.push({ g, text: "Recording date passed, mark as Recorded?", icon: "clock" });
+    if (g.stage === "Editing") { const d = Math.floor((now - Date.parse(g.milestones?.Editing || now)) / 86400000); if (d >= 10) nudges.push({ g, text: `In editing for ${d} days`, icon: "clock" }); }
+    if (g.stage === "Published" && !ep.checklist?.thanks) nudges.push({ g, text: "Live, send the episode link to the guest", icon: "mail" });
+  }
+  return (
+    <section className="card">
+      <div className="cardHead">
+        <div><h3>Upcoming recordings</h3><p className="muted small">Scheduled conversations and what needs doing next</p></div>
+        <button className="linkBtn" onClick={() => api.go("pipeline")}>Production <Icon name="arrowRight" size={13} /></button>
+      </div>
+      {upcoming.length ? (
+        <ul className="ttList">
+          {upcoming.slice(0, 5).map((g) => (
+            <li key={g.id} className="upItem" onClick={() => api.open(g.id, "Episode")}>
+              <GuestPhoto g={g} size={30} />
+              <span className="grow"><strong>{g.name}</strong><span className="muted tiny block">{day(g.episode.scheduledAt)} · {g.episode.mode || "Online"}</span></span>
+              {Date.parse(g.episode.scheduledAt) - now < 36 * 3600000 && <span className="upSoon">Soon</span>}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="muted small">No recordings scheduled. Set a date in a guest&apos;s Episode tab, or drag them to Scheduled.</p>}
+      {nudges.length > 0 && (
+        <ul className="nudges">
+          {nudges.slice(0, 5).map((n) => (
+            <li key={n.g.id + n.text} onClick={() => api.open(n.g.id, "Episode")}><Icon name={n.icon} size={13} /><span><strong>{n.g.name}</strong> · {n.text}</span></li>
+          ))}
+        </ul>
       )}
     </section>
   );

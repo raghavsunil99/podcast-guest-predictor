@@ -28,12 +28,12 @@ const MIGRATED_KEY = "epi.migrated.v2";
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "dashboard", title: "Dashboard", sub: "How your guest outreach is going" },
   { id: "discover", label: "Discover", icon: "discover", title: "Discover guests", sub: "Study a LinkedIn profile, predict a yes, and draft the invite" },
-  { id: "pipeline", label: "Pipeline", icon: "pipeline", title: "Pipeline", sub: "Drag guests through Discovered → Shortlisted → Contacted → Responded → Accepted → Recorded" },
+  { id: "pipeline", label: "Pipeline", icon: "pipeline", title: "Pipeline", sub: "Outreach: Discovered → Accepted · Production: Scheduled → Recorded → Editing → Published" },
   { id: "guests", label: "Guests", icon: "users", title: "Guests", sub: "Every guest you've studied, with filters and export" },
   { id: "companies", label: "Companies", icon: "building", title: "Companies", sub: "Guests discovered, contacted and recorded per company" },
   { id: "targets", label: "Target companies", icon: "target", title: "Target companies", sub: "AI-ranked companies to find guests at, and the ones you're tracking" },
   { id: "recommendations", label: "Recommendations", icon: "compass", title: "Recommendations", sub: "Who to approach next and where to look" },
-  { id: "archive", label: "Recorded", icon: "archive", title: "Recorded episodes", sub: "Your archive of recorded conversations" },
+  { id: "archive", label: "Episodes", icon: "archive", title: "Episodes", sub: "Upcoming recordings, episodes in production, and published episodes" },
 ];
 const SETTINGS_NAV = { id: "settings", label: "Settings", icon: "settings", title: "Settings", sub: "AI providers, usage, podcast details, workflow and appearance" };
 
@@ -56,6 +56,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState("providers");
   const [loaded, setLoaded] = useState(false);
   const [openId, setOpenId] = useState(null);
+  const [openTab, setOpenTab] = useState(null);
   const [usage, setUsage] = useState(null);
   const [toast, setToast] = useState("");
   const [navOpen, setNavOpen] = useState(false);
@@ -175,7 +176,7 @@ export default function App() {
   const api = useMemo(
     () => ({
       go,
-      open: (id) => setOpenId(id),
+      open: (id, tab = null) => { setOpenTab(tab); setOpenId(id); },
       async save(result, url) {
         const r = await fetch("/api/guests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save", result, url }) });
         if (!r.ok) return null;
@@ -221,7 +222,7 @@ export default function App() {
   }
 
   const dueCount = useMemo(() => followUpsDue(guests, settings.followUpDays || 5).length, [guests, settings.followUpDays]);
-  const recordedCount = guests.filter((g) => g.stage === "Recorded").length;
+  const recordedCount = guests.filter((g) => ["Scheduled", "Recorded", "Editing", "Ready to publish", "Published"].includes(g.stage)).length;
   const page = [...NAV, SETTINGS_NAV].find((n) => n.id === view) || NAV[0];
   const openGuest = guests.find((g) => g.id === openId);
   const props = { guests, api, settings };
@@ -329,7 +330,7 @@ export default function App() {
         </div>
       </main>
 
-      {openGuest && <GuestDrawer key={openGuest.id} guest={openGuest} api={api} settings={settings} onClose={() => setOpenId(null)} />}
+      {openGuest && <GuestDrawer key={openGuest.id} guest={openGuest} api={api} settings={settings} initialTab={openTab} onClose={() => setOpenId(null)} />}
       {toast && <div className="toast" role="status"><Icon name="check" size={15} />{toast}</div>}
     </div>
     </DomainsProvider>

@@ -3,8 +3,25 @@
 import { useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyLogo, Empty, ScoreRing } from "./ui";
-import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, stageClass, tierOf } from "@/lib/crm";
+import { Avatar, CompanyLogo, Empty, ScoreRing, Segmented, useViewPref } from "./ui";
+import { OUTREACH_STAGES, PRODUCTION_STAGES, STAGES, STAGE_HINT, daysSince, reached, stageClass, tierOf } from "@/lib/crm";
+
+const SIDE = { outreach: ["Contact later", "Not responded", "Rejected"], production: ["Cancelled"] };
+const when = (iso) => new Date(iso).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+// Production cards show what matters next: the recording date, how long it\'s been in editing, the publish date.
+function prodNote(g) {
+  const ep = g.episode || {};
+  if (g.stage === "Accepted") return ep.scheduledAt ? null : { text: "Set recording date", tone: "warn" };
+  if (g.stage === "Scheduled") {
+    if (!ep.scheduledAt) return { text: "Date not set", tone: "warn" };
+    const past = Date.parse(ep.scheduledAt) < Date.now();
+    return { text: past ? `Was due ${when(ep.scheduledAt)}` : when(ep.scheduledAt), tone: past ? "warn" : "" };
+  }
+  if (g.stage === "Editing") { const d = daysSince(g.milestones?.Editing); return d != null ? { text: `Editing ${d}d${ep.editor ? ` · ${ep.editor}` : ""}`, tone: d >= 10 ? "warn" : "" } : null; }
+  if (g.stage === "Ready to publish") return ep.targetPublish ? { text: `Publish ${new Date(ep.targetPublish).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` } : null;
+  return null;
+}
 
 export function GuestChip({ g, onOpen, extra, showRing = true }) {
   return (
@@ -54,9 +71,14 @@ function MiniCard({ g, stage, days, api, dragId, setDragId, marker, setMarker })
             <span className="ellipsis">{g.company || g.role || "—"}</span>
           </span>
         </span>
-        <span className={`kScore ks-${tier}`} title={scored ? `${g.score}/100` : "Not scored"}>{scored ? g.score : "–"}</span>
+        {reached(g, "Accepted") && g.stage !== "Cancelled" ? (
+          <span className="kScore ks-yes" title={`Said yes${scored ? ` · predicted ${g.score}/100 before contact` : ""}`}><Icon name="check" size={14} /></span>
+        ) : (
+          <span className={`kScore ks-${tier}`} title={scored ? `${g.score}/100` : "Not scored"}>{scored ? g.score : "–"}</span>
+        )}
       </button>
       {waiting != null && waiting >= days && <span className="dueTag kDue"><Icon name="bell" size={11} />Follow up · {waiting}d</span>}
+      {(() => { const n = prodNote(g); return n ? <span className={`kNote${n.tone ? " " + n.tone : ""}`}><Icon name="calendar" size={11} />{n.text}</span> : null; })()}
       <button
         className="cardRemove"
         title={`Remove ${g.name}`}
@@ -78,6 +100,8 @@ export default function Pipeline({ guests, api, settings }) {
   const [marker, setMarker] = useState(null); // { id, before, stage }: where a dragged card will land
   const [q, setQ] = useState("");
   const [focus, setFocus] = useState(null); // one stage expanded, or null for all
+  const [board, setBoardRaw] = useViewPref("pipeline-board", "outreach");
+  const setBoard = (b) => { setBoardRaw(b); setFocus(null); };
   const days = settings.followUpDays || 5;
 
   if (!guests.length) {
@@ -132,16 +156,25 @@ export default function Pipeline({ guests, api, settings }) {
       e.preventDefault();
       setOver(null);
       const id = e.dataTransfer.getData("text/plain") || dragId;
-      place(id, stage).finally(() => setMarker(null));
+      place(id, stage).finally(() => setMarker(null)).then(() => {
+        const g = guests.find((x) => x.id === id);
+        if (stage === "Scheduled" && g && !g.episode?.scheduledAt) api.open(id, "Episode");
+      });
     },
   });
-  const cols = focus ? [focus] : STAGES;
+  const strip = board === "production" ? PRODUCTION_STAGES : OUTREACH_STAGES;
+  const cols = focus ? [focus] : strip;
+  const prodCount = guests.filter((g) => PRODUCTION_STAGES.slice(1).includes(g.stage) || g.stage === "Cancelled").length;
 
   return (
     <div className="stack12">
-      <div className="stageStrip" role="tablist" aria-label="Stages">
-        {STAGES.map((st, i) => {
-          const conv = i > 0 && reachedCount(STAGES[i - 1]) ? Math.round((reachedCount(st) / reachedCount(STAGES[i - 1])) * 100) : null;
+      <Segmented value={board} onChange={setBoard} options={[
+        { value: "outreach", label: "Outreach", count: guests.filter((g) => OUTREACH_STAGES.slice(0, 4).includes(g.stage)).length },
+        { value: "production", label: "Production", count: prodCount + count("Accepted") },
+      ]} />
+      <div className={`stageStrip${board === "production" ? " prod" : ""}`} role="tablist" aria-label="Stages">
+        {strip.map((st, i) => {
+          const conv = i > 0 && reachedCount(strip[i - 1]) ? Math.round((reachedCount(st) / reachedCount(strip[i - 1])) * 100) : null;
           return (
             <button
               key={st}
@@ -154,7 +187,7 @@ export default function Pipeline({ guests, api, settings }) {
             >
               <span className="stLabel"><span className={`colDot ${stageClass(st)}`} />{st}</span>
               <span className="stCount">{count(st)}</span>
-              {conv != null && <span className="stConv" title={`${conv}% of guests who reached ${STAGES[i - 1]} reached ${st}`}>{conv}%</span>}
+              {conv != null && <span className="stConv" title={`${conv}% of guests who reached ${strip[i - 1]} reached ${st}`}>{conv}%</span>}
             </button>
           );
         })}
@@ -203,7 +236,7 @@ export default function Pipeline({ guests, api, settings }) {
 
       <div className="sideTray">
         <span className="trayTitle">Other outcomes</span>
-        {SIDE_STAGES.map((st) => {
+        {SIDE[board].map((st) => {
           const list = byStage(st);
           return (
             <section key={st} className={`trayZone${over === st ? " dropOver" : ""}`} {...dropProps(st)}>

@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Icon from "./icons";
 import PastCompanies from "./PastCompanies";
 import GuestPhoto from "./GuestPhoto";
-import { CompanyName, Drawer, Empty, ViewSwitch, fmtDate, useViewPref } from "./ui";
+import { CompanyName, Drawer, Empty, Segmented, StageBadge, ViewSwitch, fmtDate, useViewPref } from "./ui";
 import { exportCSV } from "./Guests";
 import EpisodeForm, { episodeLinks } from "./EpisodeForm";
-import { episodeTopic } from "@/lib/crm";
+import { episodeTopic, isRecorded } from "@/lib/crm";
 import { earlyViews, episodeVideoId, growth, viewsByTrait } from "@/lib/youtube";
 
 const fmtN = (n) => (n == null ? "–" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${Math.round(n / 1e3)}K` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n));
@@ -184,12 +184,43 @@ function CommentsDrawer({ row, onClose, flash }) {
 // Episode order: the number you set wins; otherwise episodes are numbered by recording date.
 export function orderEpisodes(guests) {
   const byDate = guests
-    .filter((g) => g.stage === "Recorded")
+    .filter(isRecorded)
     .sort((a, b) => String(a.episode?.recordedAt || "").localeCompare(String(b.episode?.recordedAt || "")) || String(a.updatedAt || "").localeCompare(String(b.updatedAt || "")));
   return byDate
     .map((g, i) => ({ g, key: g.episode?.number ?? i + 1, i }))
     .sort((a, b) => a.key - b.key || a.i - b.i)
     .map((x, i) => ({ g: x.g, no: i + 1 }));
+}
+
+// Accepted and scheduled guests, soonest recording first.
+function UpcomingList({ list, api }) {
+  if (!list.length) return <p className="muted small card pad16">No upcoming recordings. When a guest accepts, they show up here; set the recording date in their Episode tab.</p>;
+  return (
+    <div className="upList">
+      {list.map((g) => {
+        const ep = g.episode || {};
+        const d = ep.scheduledAt ? new Date(ep.scheduledAt) : null;
+        const past = d && d.getTime() < Date.now();
+        return (
+          <article key={g.id} className="upCard card" onClick={() => api.open(g.id, "Episode")}>
+            <div className={`upDate${d ? "" : " none"}${past ? " past" : ""}`}>
+              {d ? <><b>{d.getDate()}</b><span>{d.toLocaleDateString("en-IN", { month: "short" })}</span><small>{d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</small></> : <><Icon name="calendar" size={18} /><small>No date</small></>}
+            </div>
+            <GuestPhoto g={g} size={44} />
+            <div className="grow upMain">
+              <strong>{g.name}</strong>
+              <span className="muted small ellipsis">{g.role}</span>
+              <CompanyName name={g.company} domain={g.companyDomain} size={14} />
+            </div>
+            <div className="upMeta">
+              <StageBadge stage={g.stage} />
+              <span className="muted tiny">{d ? `${ep.mode || "Online"}${past ? " · date passed" : ""}` : "Set the recording date"}</span>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function Archive({ guests, api, flash }) {
@@ -200,7 +231,12 @@ export default function Archive({ guests, api, flash }) {
   const [commentsFor, setCommentsFor] = useState(null);
   const vOf = (g) => yt?.videos?.[episodeVideoId(g.episode)];
   const ordered = orderEpisodes(guests); // oldest → newest
-  const shown = [...ordered].reverse();
+  const [phase, setPhase] = useViewPref("episodes-phase", "all");
+  const upcoming = guests
+    .filter((g) => g.stage === "Scheduled" || g.stage === "Accepted")
+    .sort((a, b) => (Date.parse(a.episode?.scheduledAt || "") || 9e15) - (Date.parse(b.episode?.scheduledAt || "") || 9e15));
+  const inProd = (g) => ["Recorded", "Editing", "Ready to publish"].includes(g.stage);
+  const shown = [...ordered].reverse().filter(({ g }) => phase === "all" || (phase === "production" ? inProd(g) : phase === "published" ? g.stage === "Published" : true));
 
   async function move(idx, dir) {
     const j = idx + dir; // in oldest→newest order
@@ -217,10 +253,10 @@ export default function Archive({ guests, api, flash }) {
     }
   }
 
-  if (!ordered.length) {
+  if (!ordered.length && !upcoming.length) {
     return (
-      <Empty icon="archive" title="No recorded episodes yet" action={<button className="btn" onClick={() => api.go("pipeline")}>Open pipeline</button>}>
-        When you move a guest to Recorded, their episode appears here with guest and company details.
+      <Empty icon="archive" title="No episodes yet" action={<button className="btn" onClick={() => api.go("pipeline")}>Open pipeline</button>}>
+        When a guest says yes, they appear here under Upcoming. Recorded and published episodes follow, with guest and company details.
       </Empty>
     );
   }
@@ -229,11 +265,21 @@ export default function Archive({ guests, api, flash }) {
 
   return (
     <div className="stack12">
-      <div className="row gap8">
-        <p className="muted small grow">{ordered.length} episode{ordered.length > 1 ? "s" : ""} recorded · {published} published</p>
+      <div className="row gap8 wrap">
+        <Segmented value={phase} onChange={setPhase} options={[
+          { value: "upcoming", label: "Upcoming", count: upcoming.length },
+          { value: "production", label: "In production", count: ordered.filter(({ g }) => inProd(g)).length },
+          { value: "published", label: "Published", count: published },
+          { value: "all", label: "All recorded", count: ordered.length },
+        ]} />
+        <span className="grow" />
         <ViewSwitch value={view} onChange={setView} options={["cards", "grid", "list"]} />
         <button className="btn btnSm" onClick={() => exportCSV(ordered.map((x) => x.g), "recorded-episodes")}><Icon name="download" size={14} />Export</button>
       </div>
+      {phase === "upcoming" ? (
+        <UpcomingList list={upcoming} api={api} />
+      ) : (
+      <>
       <Performance ordered={ordered} yt={yt} busy={ytBusy} refresh={ytRefresh} api={api} onComments={setCommentsFor} />
       {commentsFor && <CommentsDrawer row={commentsFor} onClose={() => setCommentsFor(null)} flash={flash} />}
 
@@ -296,7 +342,7 @@ export default function Archive({ guests, api, flash }) {
             <article key={g.id} className="episode" onClick={() => api.open(g.id)}>
               <div className="epCover" style={{ "--seed": (i * 47) % 360 }}>
                 <span className="epNo">EP {String(no).padStart(2, "0")}</span>
-                <span className={`epPub${ep.published ? " on" : ""}`}>{ep.published ? "Published" : "Not published"}</span>
+                <span className={`epPub${g.stage === "Published" ? " on" : ""}`}>{g.stage === "Published" ? "Published" : g.stage === "Ready to publish" ? "Ready" : g.stage}</span>
                 <div className="epTools" onClick={(e) => e.stopPropagation()}>
                   <button title="Move left (higher episode number)" disabled={idx === ordered.length - 1 || moving} onClick={() => move(idx, 1)}><span className="flipX"><Icon name="chevronRight" size={14} /></span></button>
                   <button title="Move right (lower episode number)" disabled={idx === 0 || moving} onClick={() => move(idx, -1)}><Icon name="chevronRight" size={14} /></button>
@@ -335,6 +381,10 @@ export default function Archive({ guests, api, flash }) {
           );
         })}
       </div>
+      )}
+
+      {!shown.length && <p className="muted small card pad16">No episodes in this group yet.</p>}
+      </>
       )}
 
       {editing && (

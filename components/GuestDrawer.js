@@ -3,18 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icons";
 import PastCompanies from "./PastCompanies";
-import EpisodeForm from "./EpisodeForm";
+import EpisodeForm, { episodeMessages } from "./EpisodeForm";
 import { resizePhoto } from "./GuestPhoto";
-import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo } from "./ui";
+import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo, useCopy } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
-import { SIDE_STAGES, STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
+import { OUTREACH_STAGES, PRODUCTION_STAGES, SIDE_STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
 
 const TABS = ["Overview", "Messages", "Contact", "Notes & history", "Episode"];
 const ACT_ICON = { created: "plus", stage: "arrowRight", note: "note", regenerated: "refresh", update: "edit" };
 
 
-export default function GuestDrawer({ guest: g, api, onClose, settings }) {
-  const [tab, setTab] = useState("Overview");
+export default function GuestDrawer({ guest: g, api, onClose, settings, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "Overview");
   const [result, setResult] = useState(g.result);
   const timer = useRef(null);
   useEffect(() => setResult(g.result), [g.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -30,6 +30,11 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
   const waiting = g.stage === "Contacted" ? daysSince(g.lastFollowUpAt || g.milestones?.Contacted) : null;
   const due = waiting != null && waiting >= (settings.followUpDays || 5);
   const onSide = SIDE_STAGES.includes(g.stage);
+  const inProduction = reached(g, "Accepted") && !["Rejected", "Not responded", "Contact later"].includes(g.stage);
+  const [half, setHalf] = useState(null); // null = follow the guest's stage
+  const showProd = half ? half === "production" : inProduction;
+  const steps = showProd ? PRODUCTION_STAGES : OUTREACH_STAGES;
+  const sides = showProd ? ["Cancelled"] : ["Contact later", "Not responded", "Rejected"];
   const [dropping, setDropping] = useState(false);
 
   async function setPhotoFromFile(file) {
@@ -86,8 +91,12 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
           <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
         </div>
 
+        <div className="stepperHead">
+          <span className="eyebrow">{showProd ? "Production" : "Outreach"}</span>
+          <button className="linkBtn tiny" onClick={() => setHalf(showProd ? "outreach" : "production")}>Show {showProd ? "outreach" : "production"} stages</button>
+        </div>
         <div className="stepper" role="group" aria-label="Pipeline stage">
-          {STAGES.map((st, i) => {
+          {steps.map((st, i) => {
             const done = !onSide && reached(g, st) && g.stage !== st;
             return (
               <button key={st} className={`step${g.stage === st ? " current" : ""}${done ? " done" : ""}`} onClick={() => api.patch(g.id, { stage: st })} title={STAGE_HINT[st]}>
@@ -99,7 +108,7 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
         </div>
         <div className="sideOutcomes">
           <span className="muted tiny">Other outcomes</span>
-          {SIDE_STAGES.map((st) => (
+          {sides.map((st) => (
             <button key={st} className={`chipBtn${g.stage === st ? " on" : ""} side-${st.replace(/\s+/g, "")}`} onClick={() => api.patch(g.id, { stage: st })} title={STAGE_HINT[st]}>
               {st}
             </button>
@@ -170,7 +179,7 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
 
         {tab === "Contact" && <ContactTab g={g} api={api} />}
         {tab === "Notes & history" && <NotesTab g={g} api={api} />}
-        {tab === "Episode" && <EpisodeTab g={g} api={api} />}
+        {tab === "Episode" && <EpisodeTab g={g} api={api} settings={settings} />}
       </div>
 
       <div className="drawerFoot">
@@ -350,17 +359,32 @@ function NotesTab({ g, api }) {
   );
 }
 
-function EpisodeTab({ g, api }) {
+function EpisodeTab({ g, api, settings }) {
   const [ok, setOk] = useState(false);
+  const { copied, copy } = useCopy();
+  const msgs = episodeMessages(g, settings);
   return (
     <div className="stack16">
-      {!["Accepted", "Recorded"].includes(g.stage) && (
-        <p className="alert alertInfo">Episode details are usually added once a guest has accepted. Moving them to <StageBadge stage="Recorded" /> adds them to the archive.</p>
+      {!reached(g, "Accepted") && (
+        <p className="alert alertInfo">Episode details are usually added once a guest has accepted. Setting a recording date moves them to <StageBadge stage="Scheduled" />.</p>
       )}
       <div className="panel">
         <EpisodeForm key={g.id} episode={g.episode} onSave={async (episode) => { await api.patch(g.id, { episode }); setOk(true); setTimeout(() => setOk(false), 1600); }} />
         {ok && <span className="savedFlash">Saved</span>}
       </div>
+      {msgs.length > 0 && (
+        <div className="panel stack12">
+          <span className="eyebrow">Messages for this step</span>
+          {msgs.map((m) => (
+            <div key={m.key} className="epMsg">
+              <div className="row gap8"><strong className="small grow">{m.label}</strong>
+                <button className="btn btnSm" onClick={() => copy(m.text, m.key)}><Icon name={copied === m.key ? "check" : "copy"} size={13} />{copied === m.key ? "Copied" : "Copy"}</button>
+              </div>
+              <pre className="epMsgText">{m.text}</pre>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
