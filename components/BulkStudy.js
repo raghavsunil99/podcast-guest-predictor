@@ -75,7 +75,7 @@ function add(items, guests) {
 
 // Study exactly one queued profile (one-by-one mode).
 async function studyItem(it, ctx) {
-  set({ running: true, current: it.id });
+  set({ running: true, current: it.id, paused: "" });
   update(it.id, { status: "studying", error: "" });
   try {
     const r = await studyOne({
@@ -85,7 +85,11 @@ async function studyItem(it, ctx) {
     update(it.id, { status: "done", guestId: r.guest?.id || null, duplicate: r.duplicate, label: r.result.profile?.fullName || it.label });
     if (r.notice) ctx.flash?.(r.notice);
   } catch (err) {
-    update(it.id, { status: "failed", error: err.message });
+    if (err.code === "offline") {
+      // Not this profile's fault: keep it waiting and tell you to start the app.
+      update(it.id, { status: "waiting", error: "" });
+      set({ paused: "Paused: " + err.message });
+    } else update(it.id, { status: "failed", error: err.message });
   } finally {
     set({ running: false });
     ctx.onUsageChange?.();
@@ -94,6 +98,7 @@ async function studyItem(it, ctx) {
 
 async function run(ctx) {
   if (state.running) return;
+  set({ items: state.items.map((x) => (x.status === "failed" && /load failed|failed to fetch|can't reach the app/i.test(x.error || "") ? { ...x, status: "waiting", error: "" } : x)) });
   set({ running: true, paused: "" });
   let busyInARow = 0;
   try {
@@ -114,6 +119,11 @@ async function run(ctx) {
         });
         if (r.notice) ctx.flash?.(r.notice);
       } catch (err) {
+        if (err.code === "offline") {
+          update(it.id, { status: "waiting", error: "" });
+          set({ paused: "Paused: " + err.message });
+          break;
+        }
         update(it.id, { status: "failed", error: err.message });
         // A rejected key or no usable provider won't fix itself: stop and say so.
         if (err.code === "auth" || err.code === "none") { set({ paused: "Paused: " + err.message }); break; }

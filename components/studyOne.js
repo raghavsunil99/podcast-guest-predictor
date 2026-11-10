@@ -11,7 +11,15 @@ export async function studyOne({ inp, settings, providerId, nativeGreeting, api 
   fd.append("settings", JSON.stringify(settings));
   if (providerId) fd.append("provider", providerId);
   if (inp.pdf) fd.append("pdf", inp.pdf);
-  const res = await fetch("/api/generate", { method: "POST", body: fd });
+  let res;
+  try {
+    res = await fetch("/api/generate", { method: "POST", body: fd });
+  } catch {
+    // Network-level failure ("Load failed" / "Failed to fetch"): the app itself isn't reachable.
+    const err = new Error("Can't reach the app. Is it still running? Start it with npm start, then try again.");
+    err.code = "offline";
+    throw err;
+  }
   const data = await res.json().catch(() => ({ error: "Unexpected server response." }));
   if (!res.ok || data.error) {
     const err = new Error(data.error || "Something went wrong.");
