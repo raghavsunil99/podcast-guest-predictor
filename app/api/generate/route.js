@@ -3,6 +3,8 @@ import { aiErrorResponse, runAI } from "@/lib/ai/service";
 import { extractProfilePhoto } from "@/lib/pdfPhoto";
 import { scoreAcceptance } from "@/lib/scoring";
 import { normalizeResult } from "@/lib/normalize";
+import { listGuests } from "@/lib/guestStore";
+import { applyLanguageHints, hintsForPrompt, learnLanguageHints } from "@/lib/language";
 import { CAREER_SWITCH_SCHEMA, EDUCATION_SCHEMA, EXPERIENCE_SCHEMA } from "@/lib/career";
 
 export const runtime = "nodejs";
@@ -254,8 +256,14 @@ export async function POST(req) {
       parts.push({ text: `PROFILE INFO (gathered from public web search, may be incomplete):\n${research}` });
     }
 
+    // What you've taught it about languages (corrected and confirmed guests, by surname).
+    const langHints = learnLanguageHints(await listGuests().catch(() => []));
+    const langNote = hintsForPrompt(langHints);
+
     parts.push({
-      text: `LinkedIn URL: ${url || "(not given)"}
+      text: `${langNote ? `${langNote}
+
+` : ""}LinkedIn URL: ${url || "(not given)"}
 Sources: ${sourceNotes.join(" ") || "Public web research."}
 Honorific override: ${honorificOverride}
 Native greeting: ${nativeGreeting ? "yes" : "no"}
@@ -281,9 +289,14 @@ ${settings.connectionTemplate}
       temperature: 0.7,
     });
 
-    const data = out.data;
+    let data = out.data;
     data.warnings = Array.isArray(data.warnings) ? data.warnings : [];
     normalizeResult(data, honorificOverride);
+    {
+      const keep = honorificOverride !== "auto" ? { h: data.honorific, m: [data.fullMessage, data.connectionNote, data.whatsappMessage, data.followUpMessage] } : null;
+      data = applyLanguageHints(data, langHints).result;
+      if (keep) { data.honorific = keep.h; [data.fullMessage, data.connectionNote, data.whatsappMessage, data.followUpMessage] = keep.m; }
+    }
     scoreAcceptance(data);
     if (usedWebResearch) {
       data.warnings.unshift("Profile details came from public web search, not the profile itself. Double-check them before sending.");

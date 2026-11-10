@@ -1212,3 +1212,8 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .bulkAfter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--border); }
 .bulkAfter select { width: auto; font-size: 13px; padding: 4px 8px; }
 @media (max-width: 900px) { .bulk { grid-template-columns: 1fr; } .bulkStatus { min-width: 0; } }
+/* Language editing */
+.conf-Confirmed { background: color-mix(in srgb, #2fd998 18%, transparent); color: #14905f; }
+.langActs { margin: 4px 0 6px; }
+.langEdit { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.langEdit select, .langEdit input { font-size: 13px; }

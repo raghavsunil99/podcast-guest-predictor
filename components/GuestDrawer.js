@@ -151,7 +151,7 @@ export default function GuestDrawer({ guest: g, api, onClose, settings }) {
               <div className="hookCard"><span className="eyebrow">The hook</span><p>{result.hook}</p></div>
             )}
             {result && <CareerTimeline profile={result.profile} />}
-            {result && <BackgroundPanel result={result} />}
+            {result && <BackgroundPanel result={result} onLanguage={(next) => { setResult(next); api.patch(g.id, { patch: { result: next, language: next.background.nativeLanguage === "Unknown" ? "" : next.background.nativeLanguage } }); }} />}
             {result && <ProfileSummary result={result} />}
           </div>
         )}

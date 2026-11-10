@@ -6,6 +6,7 @@ import Icon from "./icons";
 import { CompanyLogo, ScoreRing, TierBadge, fmt, useCopy } from "./ui";
 import { analyzeCareer, fmtMonths } from "@/lib/career";
 import { tierOf } from "@/lib/crm";
+import { LANGUAGE_NAMES, applyLanguage } from "@/lib/language";
 
 const VERDICT = { High: "Likely to say yes", Medium: "Worth a try", Low: "Long shot" };
 
@@ -228,7 +229,61 @@ export function PredictionPanel({ acc, ss, learning, onOpenGuest, onSaveSignals 
   );
 }
 
-export function BackgroundPanel({ result }) {
+// Confirm, change, add or clear the guessed native language. Your choice also updates the greeting
+// and honorific in the messages, and teaches future studies (same surname → same language).
+function LanguageEditor({ result, onChange }) {
+  const bg = result?.background || {};
+  const cur = bg.nativeLanguage && bg.nativeLanguage !== "Unknown" ? bg.nativeLanguage : "";
+  const [editing, setEditing] = useState(false);
+  const [pick, setPick] = useState(cur || "");
+  const [other, setOther] = useState("");
+  const save = (lang, custom) => { onChange(applyLanguage(result, lang, { custom })); setEditing(false); };
+  if (!onChange) {
+    return (
+      <p className="lang">
+        {cur || "Unknown"}
+        {bg.confidence && <span className={`conf conf-${bg.confidence}`}>{bg.confidence === "Confirmed" ? "Confirmed by you" : `${bg.confidence} confidence`}</span>}
+      </p>
+    );
+  }
+  if (editing) {
+    const isOther = pick === "__other";
+    return (
+      <div className="langEdit">
+        <select value={pick} onChange={(e) => setPick(e.target.value)} autoFocus>
+          <option value="">Not sure</option>
+          {LANGUAGE_NAMES.map((l) => <option key={l} value={l}>{l}</option>)}
+          {cur && !LANGUAGE_NAMES.includes(cur) && <option value={cur}>{cur}</option>}
+          <option value="__other">Other (type it)…</option>
+        </select>
+        {isOther && <input value={other} onChange={(e) => setOther(e.target.value)} placeholder="e.g. Sindhi" autoFocus />}
+        <div className="row gap6">
+          <button className="btn btnSm btnPrimary" disabled={isOther && !other.trim()} onClick={() => (isOther ? save(other.trim().replace(/^./, (c) => c.toUpperCase()), true) : save(pick))}>Save</button>
+          <button className="btn btnSm" onClick={() => setEditing(false)}>Cancel</button>
+        </div>
+        <p className="muted tiny">Updates the greeting and honorific in the messages, and future guests with the same surname.</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <p className="lang">
+        {cur || (bg.confirmed ? "Not sure" : "Not found")}
+        {bg.confidence && <span className={`conf conf-${bg.confidence}`}>{bg.confidence === "Confirmed" ? "Confirmed by you" : `${bg.confidence} confidence`}</span>}
+      </p>
+      {bg.corrected && bg.aiGuess && bg.aiGuess !== "Unknown" && <p className="muted tiny">You corrected this (AI guessed {bg.aiGuess})</p>}
+      {bg.learned && <p className="muted tiny">Set from your past corrections{bg.aiGuess ? ` (AI guessed ${bg.aiGuess})` : ""}</p>}
+      <div className="row gap6 langActs">
+        {cur && bg.confidence !== "Confirmed" && <button className="btn btnSm" onClick={() => save(cur)}><Icon name="check" size={13} />Correct</button>}
+        <button className="btn btnSm" onClick={() => { setPick(cur); setOther(""); setEditing(true); }}>
+          <Icon name={cur ? "edit" : "plus"} size={13} />{cur ? "Change" : "Add language"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+export function BackgroundPanel({ result, onLanguage }) {
   const p = result?.profile || {};
   const bg = result?.background || {};
   const known = (v) => v && v !== "Unknown";
@@ -256,10 +311,7 @@ export function BackgroundPanel({ result }) {
       </div>
       <div className="panel">
         <div className="eyebrow">Regional background</div>
-        <p className="lang">
-          {bg.nativeLanguage || "Unknown"}
-          {bg.confidence && <span className={`conf conf-${bg.confidence}`}>{bg.confidence} confidence</span>}
-        </p>
+        <LanguageEditor result={result} onChange={onLanguage} />
         {known(bg.nativeRegion) && <p className="muted small">Likely from {bg.nativeRegion}</p>}
         {bg.nativeGreeting && <p className="small">Greeting: <strong>{bg.nativeGreeting}</strong></p>}
         <p className="small">Addressed as <strong>{result.honorific ? `${p.firstName} ${result.honorific}` : p.firstName}</strong></p>

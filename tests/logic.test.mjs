@@ -435,3 +435,60 @@ test("accuracy check compares AI-only ranking with learned ranking", () => {
   assert.ok(r.aiOnly >= 0 && r.aiOnly <= 100);
   assert.ok(r.withLearning >= 0 && r.withLearning <= 100);
 });
+
+// ---------- Native language: correct, add, learn ----------
+import { applyLanguage, applyLanguageHints, hintsForPrompt, learnLanguageHints, surnameOf, swapHonorific } from "../lib/language.js";
+
+const study = (lang, hon, conf = "Medium") => ({
+  profile: { fullName: "Ravi Teja Kondapalli", firstName: "Ravi" },
+  background: { nativeLanguage: lang, confidence: conf, signals: [] },
+  honorific: hon,
+  fullMessage: `Hi Ravi${hon ? " " + hon : ""},\n\nI'm Raghavendra…`,
+  connectionNote: `Hi Ravi${hon ? " " + hon : ""}, I host…`,
+  whatsappMessage: "", followUpMessage: "",
+});
+
+test("correcting the language updates greeting, honorific and messages", () => {
+  const r = applyLanguage(study("Tamil", ""), "Telugu");
+  assert.equal(r.background.nativeLanguage, "Telugu");
+  assert.equal(r.background.confidence, "Confirmed");
+  assert.equal(r.background.corrected, true);
+  assert.equal(r.background.aiGuess, "Tamil");
+  assert.equal(r.background.nativeGreeting, "Namaskaram");
+  assert.equal(r.honorific, "garu");
+  assert.match(r.fullMessage, /^Hi Ravi garu,/);
+  assert.match(r.connectionNote, /^Hi Ravi garu, I host/);
+  const back = applyLanguage(r, "Tamil");
+  assert.match(back.fullMessage, /^Hi Ravi,/, "garu removed again");
+  assert.equal(swapHonorific("Hi Ravi ji, hello", "Ravi", "ji", "garu"), "Hi Ravi garu, hello");
+});
+
+test("not sure / a new language / a hand-set honorific", () => {
+  const notSure = applyLanguage(study("Telugu", "garu"), "");
+  assert.equal(notSure.background.nativeLanguage, "Unknown");
+  assert.match(notSure.fullMessage, /^Hi Ravi,/);
+  const custom = applyLanguage(study("Unknown", ""), "Sindhi", { custom: true });
+  assert.equal(custom.background.nativeLanguage, "Sindhi");
+  assert.equal(custom.background.custom, true);
+  const sir = applyLanguage(study("Hindi", "Sir"), "Telugu");
+  assert.equal(sir.honorific, "Sir", "an honorific you set yourself is kept");
+});
+
+test("corrections teach future studies with the same surname", () => {
+  assert.equal(surnameOf("K V Sandeep"), "", "initials are the family name, so nothing to learn from");
+  assert.equal(surnameOf("Ravi Teja Kondapalli"), "kondapalli");
+  const corrected = { name: "Sai Kondapalli", result: applyLanguage(study("Tamil", ""), "Telugu") };
+  const hints = learnLanguageHints([corrected, { name: "No Outcome", result: study("Hindi", "ji") }]);
+  assert.equal(hints.get("kondapalli").language, "Telugu");
+  assert.equal(hints.size, 1, "unconfirmed guesses don't teach anything");
+  const { result, used } = applyLanguageHints(study("Tamil", "", "Medium"), hints);
+  assert.ok(used);
+  assert.equal(result.background.nativeLanguage, "Telugu");
+  assert.equal(result.background.learned, true);
+  assert.equal(result.honorific, "garu");
+  // A confident AI isn't overridden, but you're warned.
+  const sure = applyLanguageHints(study("Tamil", "", "High"), hints);
+  assert.equal(sure.result.background.nativeLanguage, "Tamil");
+  assert.ok(sure.result.warnings.some((w) => /Check the language/.test(w)));
+  assert.match(hintsForPrompt(hints), /Sai Kondapalli: not Tamil, Telugu/);
+});

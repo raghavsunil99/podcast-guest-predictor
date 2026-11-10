@@ -338,7 +338,7 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
             )}
 
             <CareerTimeline profile={result.profile} />
-            <BackgroundPanel result={result} />
+            <BackgroundPanel result={result} onLanguage={(next) => { setResult(next); if (saved) api.patch(saved.id, { patch: { result: next, language: next.background.nativeLanguage === "Unknown" ? "" : next.background.nativeLanguage } }); }} />
 
             {result.warnings?.length > 0 && (
               <div className="alert alertWarn">
