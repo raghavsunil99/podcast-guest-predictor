@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS } from "@/lib/defaults";
 import { aiErrorResponse, runAI } from "@/lib/ai/service";
 import { extractProfilePhoto } from "@/lib/pdfPhoto";
+import { findLinkedInUrl, pdfToText } from "@/lib/pdfText";
 import { scoreAcceptance } from "@/lib/scoring";
 import { normalizeResult } from "@/lib/normalize";
 import { listGuests } from "@/lib/guestStore";
@@ -225,12 +226,14 @@ export async function POST(req) {
   const parts = [];
   let pdfPhoto = null;
   const sourceNotes = [];
+  let pdfLinkedIn = "";
 
   try {
     if (hasPdf) {
       const buf = Buffer.from(await pdf.arrayBuffer());
       parts.push({ pdf: buf.toString("base64") });
       pdfPhoto = extractProfilePhoto(buf); // browser-saved LinkedIn pages include the profile photo
+      pdfLinkedIn = findLinkedInUrl(await pdfToText(buf).catch(() => ""));
       sourceNotes.push("Profile PDF attached above.");
     }
     if (profileText) {
@@ -305,6 +308,9 @@ ${settings.connectionTemplate}
       data.warnings.push(`Connection note is ${data.connectionNote.length} characters; LinkedIn allows 300. Shorten it before sending.`);
     }
     if (pdfPhoto) data.pdfPhoto = pdfPhoto.dataUrl;
+    // Keep the profile's LinkedIn link: typed URL, else found in the PDF or pasted text.
+    const li = url || pdfLinkedIn || findLinkedInUrl(profileText);
+    if (li) data.contact = { ...(data.contact || {}), linkedin: li };
     data.model = out.model;
     data.ai = { provider: out.provider.name, providerId: out.provider.id, model: out.model, notice: out.notice };
     data.tokensUsed = out.tokens + researchTokens;

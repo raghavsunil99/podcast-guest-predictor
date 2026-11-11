@@ -316,3 +316,29 @@ export function ViewSwitch({ value, onChange, options }) {
     </div>
   );
 }
+
+// Opens the guest's LinkedIn profile, or a LinkedIn search for their name + company when no link is saved.
+export function linkedInHref(g) {
+  if (g?.linkedinUrl) return /^https?:/i.test(g.linkedinUrl) ? g.linkedinUrl : `https://${g.linkedinUrl}`;
+  return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent([g?.name, g?.company].filter(Boolean).join(" "))}`;
+}
+export function LinkedInButton({ g, label = false, className = "" }) {
+  const exact = !!g?.linkedinUrl;
+  const title = exact ? `Open ${g.name}'s LinkedIn profile` : `Search LinkedIn for ${g?.name} (no profile link saved)`;
+  return (
+    <a
+      className={`liLink${label ? " withLabel" : ""}${exact ? "" : " search"} ${className}`}
+      href={linkedInHref(g)}
+      target="_blank"
+      rel="noreferrer"
+      title={title}
+      aria-label={title}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      draggable={false}
+    >
+      <Icon name="linkedin" size={label ? 14 : 13} />
+      {label && <span>{exact ? "LinkedIn" : "Find on LinkedIn"}</span>}
+    </a>
+  );
+}

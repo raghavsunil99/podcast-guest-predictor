@@ -551,3 +551,9 @@ test("existing recorded episodes marked published move to the Published stage", 
   assert.ok(m.milestones.Recorded && m.milestones.Published);
   assert.equal(migrate2(applyStage(guest(), "Recorded")).stage, "Recorded", "unpublished stays Recorded");
 });
+
+test("finds the profile's own LinkedIn link in PDF text", async () => {
+  const { findLinkedInUrl } = await import("../lib/pdfText.js");
+  assert.equal(findLinkedInUrl("Contact www.linkedin.com/in/vishnu-chaparapu-1a2b (LinkedIn) … https://www.linkedin.com/in/vishnu-chaparapu-1a2b/ 1/4 … linkedin.com/in/someone-else"), "https://www.linkedin.com/in/vishnu-chaparapu-1a2b");
+  assert.equal(findLinkedInUrl("no link here"), "");
+});

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyLogo, Empty, ScoreRing, Segmented, useViewPref } from "./ui";
+import { Avatar, CompanyLogo, Empty, LinkedInButton, ScoreRing, Segmented, useViewPref } from "./ui";
 import { OUTREACH_STAGES, PRODUCTION_STAGES, STAGES, STAGE_HINT, daysSince, reached, stageClass, tierOf } from "@/lib/crm";
 
 const SIDE = { outreach: ["Contact later", "Not responded", "Rejected"], production: ["Cancelled"] };
@@ -79,6 +79,7 @@ function MiniCard({ g, stage, days, api, dragId, setDragId, marker, setMarker })
       </button>
       {waiting != null && waiting >= days && <span className="dueTag kDue"><Icon name="bell" size={11} />Follow up · {waiting}d</span>}
       {(() => { const n = prodNote(g); return n ? <span className={`kNote${n.tone ? " " + n.tone : ""}`}><Icon name="calendar" size={11} />{n.text}</span> : null; })()}
+      <LinkedInButton g={g} />
       <button
         className="cardRemove"
         title={`Remove ${g.name}`}

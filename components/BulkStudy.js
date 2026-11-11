@@ -5,7 +5,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Icon from "./icons";
 import GuestPhoto from "./GuestPhoto";
-import { CompanyName, Segmented, StageBadge, fmtDate } from "./ui";
+import { CompanyName, LinkedInButton, Segmented, StageBadge, fmtDate } from "./ui";
 import { BackgroundPanel, MessagesPanel, PredictionPanel } from "./Insight";
 import { studyOne } from "./studyOne";
 import { normLinkedIn, normName } from "@/lib/crm";
@@ -317,6 +317,7 @@ export default function BulkStudy({ settings, api, guests, providers = [], flash
                     {it.status === "done" && it.duplicate ? "Updated" : label}
                   </span>
                   <span className="bulkActs" onClick={(e) => e.stopPropagation()}>
+                    {g && <LinkedInButton g={g} />}
                     {g && <button className="iconBtn sm" title="Open guest" onClick={() => api.open(g.id)}><Icon name="arrowRight" size={13} /></button>}
                     {g && it.status === "done" && g.stage === "Discovered" && (
                       <button className="iconBtn sm" title="Shortlist" onClick={() => api.patch(g.id, { stage: "Shortlisted" })}><Icon name="thumbUp" size={13} /></button>
@@ -386,6 +387,7 @@ function StepView({ it, g, api, onRetry }) {
           {it.duplicate && <span className="dupTag">Updated existing guest</span>}
           <StageBadge stage={g.stage} />
           {g.stage === "Discovered" && <button className="btn btnSm" onClick={() => api.patch(g.id, { stage: "Shortlisted" })}><Icon name="thumbUp" size={13} />Shortlist</button>}
+          <LinkedInButton g={g} label />
           <button className="btn btnSm" onClick={() => api.open(g.id)}>Open<Icon name="arrowRight" size={13} /></button>
         </div>
       </div>

@@ -5,7 +5,7 @@ import Icon from "./icons";
 import PastCompanies from "./PastCompanies";
 import EpisodeForm, { episodeMessages } from "./EpisodeForm";
 import { resizePhoto } from "./GuestPhoto";
-import { Avatar, CompanyName, Drawer, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo, useCopy } from "./ui";
+import { Avatar, CompanyName, Drawer, LinkedInButton, ScoreRing, StageBadge, TierBadge, fmtDate, timeAgo, useCopy } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 import { OUTREACH_STAGES, PRODUCTION_STAGES, SIDE_STAGES, STAGE_HINT, daysSince, reached } from "@/lib/crm";
 
@@ -80,11 +80,7 @@ export default function GuestDrawer({ guest: g, api, onClose, settings, initialT
             </div>
             <div className="drawerPast"><PastCompanies g={g} max={4} /></div>
           </div>
-          {g.linkedinUrl && (
-            <a className="iconBtn liBtn" href={g.linkedinUrl} target="_blank" rel="noreferrer" title="Open LinkedIn profile" aria-label="Open LinkedIn profile">
-              <Icon name="linkedin" size={18} />
-            </a>
-          )}
+          <LinkedInButton g={g} label className="drawerLi" />
           <div className="drawerScore">
             <ScoreRing score={g.score} likelihood={g.likelihood} size={64} stroke={6} />
           </div>

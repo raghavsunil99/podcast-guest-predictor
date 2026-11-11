@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Icon from "./icons";
 import PastCompanies from "./PastCompanies";
 import GuestPhoto from "./GuestPhoto";
-import { CompanyName, Drawer, Empty, Segmented, StageBadge, ViewSwitch, fmtDate, useViewPref } from "./ui";
+import { CompanyName, Drawer, Empty, LinkedInButton, Segmented, StageBadge, ViewSwitch, fmtDate, useViewPref } from "./ui";
 import { exportCSV } from "./Guests";
 import EpisodeForm, { episodeLinks } from "./EpisodeForm";
 import { episodeTopic, isRecorded } from "@/lib/crm";
@@ -208,7 +208,7 @@ function UpcomingList({ list, api }) {
             </div>
             <GuestPhoto g={g} size={44} />
             <div className="grow upMain">
-              <strong>{g.name}</strong>
+              <strong className="nameRow">{g.name}<LinkedInButton g={g} /></strong>
               <span className="muted small ellipsis">{g.role}</span>
               <CompanyName name={g.company} domain={g.companyDomain} size={14} />
             </div>
@@ -301,6 +301,7 @@ export default function Archive({ guests, api, flash }) {
                 <span className="muted small hideSm epRowDate">{ep.recordedAt ? fmtDate(ep.recordedAt) : "No date"}</span>
                 <span className={`pubPill${ep.published ? " on" : ""}`}>{ep.published ? "Published" : "Not published"}</span>
                 <span className="epRowLinks" onClick={(e) => e.stopPropagation()}>
+                  <LinkedInButton g={g} />
                   {links.map((l) => <a key={l.key} className="iconBtn sm" href={l.url} target="_blank" rel="noreferrer" title={l.label}><Icon name={l.key === "youtube" ? "play" : "external"} size={13} /></a>)}
                   <button className="iconBtn sm" title="Move up (higher number)" disabled={no === ordered.length || moving} onClick={() => move(no - 1, 1)}><Icon name="arrowUp" size={13} /></button>
                   <button className="iconBtn sm" title="Move down (lower number)" disabled={no === 1 || moving} onClick={() => move(no - 1, -1)}><Icon name="arrowDown" size={13} /></button>
@@ -364,6 +365,7 @@ export default function Archive({ guests, api, flash }) {
                 </div>
                 <StatLine v={vOf(g)} />
                 <div className="row gap8 epActions wrap" onClick={(e) => e.stopPropagation()}>
+                  <LinkedInButton g={g} label />
                   {links.length ? (
                     links.map((l) => (
                       <a key={l.key} className="btn btnSm" href={l.url} target="_blank" rel="noreferrer">

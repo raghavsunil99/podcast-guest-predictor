@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Icon from "./icons";
 import PastCompanies from "./PastCompanies";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyName, Empty, ScoreRing, StageBadge, TierBadge, ViewSwitch, timeAgo, useViewPref } from "./ui";
+import { Avatar, CompanyName, Empty, LinkedInButton, ScoreRing, StageBadge, TierBadge, ViewSwitch, timeAgo, useViewPref } from "./ui";
 import { ALL_STAGES, findDuplicates, normText, pickPrimary, tierOf, toCSV } from "@/lib/crm";
 
 const uniq = (list) => [...new Set(list.filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -248,7 +248,7 @@ export default function Guests({ guests, api, initialFilter }) {
                   <ScoreRing score={g.score} likelihood={g.likelihood} size={44} stroke={4} animate={false} />
                 </div>
                 <div className="gcName">
-                  <strong>{g.name}{dupIds.has(g.id) && <span className="dupTag">Duplicate?</span>}</strong>
+                  <strong className="nameRow">{g.name}<LinkedInButton g={g} />{dupIds.has(g.id) && <span className="dupTag">Duplicate?</span>}</strong>
                   <span className="muted small clamp2">{g.role || "—"}</span>
                 </div>
                 <CompanyName name={g.company} domain={g.companyDomain} />
@@ -291,7 +291,7 @@ export default function Guests({ guests, api, initialFilter }) {
                   <div className="cellGuest">
                     <GuestPhoto g={g} size={34} />
                     <div>
-                      <strong>{g.name}{dupIds.has(g.id) && <span className="dupTag">Duplicate?</span>}</strong>
+                      <strong className="nameRow">{g.name}<LinkedInButton g={g} />{dupIds.has(g.id) && <span className="dupTag">Duplicate?</span>}</strong>
                       <span className="muted small ellipsis">{g.role}</span>
                     </div>
                   </div>

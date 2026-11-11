@@ -1292,3 +1292,14 @@ select { appearance: none; padding-right: 30px; background-image: url("data:imag
 .upDate.past { background: color-mix(in srgb, var(--med) 18%, transparent); color: var(--med); }
 .upMain { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .upMeta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+/* LinkedIn button */
+.liLink { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; width: 24px; height: 24px; border-radius: 6px; color: #0a66c2; background: color-mix(in srgb, #0a66c2 12%, transparent); text-decoration: none; transition: background 0.15s; }
+.liLink:hover { background: color-mix(in srgb, #0a66c2 22%, transparent); }
+:root[data-theme="dark"] .liLink { color: #70b5f9; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .liLink { color: #70b5f9; } }
+.liLink.search { opacity: 0.7; }
+.liLink.withLabel { width: auto; height: auto; padding: 5px 10px; font-size: 12.5px; font-weight: 500; border-radius: 8px; }
+.kCard .liLink { position: absolute; right: 30px; top: 6px; width: 22px; height: 22px; opacity: 0; transition: opacity 0.15s; }
+.kCard:hover .liLink { opacity: 1; }
+@media (hover: none) { .kCard .liLink { opacity: 1; } }
+.nameRow { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }

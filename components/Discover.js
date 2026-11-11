@@ -7,7 +7,7 @@ import Icon from "./icons";
 import { studyOne } from "./studyOne";
 import BulkStudy from "./BulkStudy";
 import GuestPhoto from "./GuestPhoto";
-import { Avatar, CompanyName, Segmented, StageBadge } from "./ui";
+import { Avatar, CompanyName, LinkedInButton, Segmented, StageBadge } from "./ui";
 import { BackgroundPanel, CareerTimeline, MessagesPanel, PredictionPanel, ProfileSummary } from "./Insight";
 
 export default function Discover({ settings, api, guests, onUsageChange, providers = [], flash, openProviders }) {
@@ -138,6 +138,7 @@ export default function Discover({ settings, api, guests, onUsageChange, provide
               <button type="button" className="btn" onClick={() => api.patch(guest.id, { stage: "Shortlisted" })}><Icon name="thumbUp" size={15} />Shortlist</button>
             )}
             {guest && <button type="button" className="btn" onClick={() => api.open(guest.id)}><Icon name="users" size={15} />Open guest</button>}
+            {guest && <LinkedInButton g={guest} label />}
             <button type="button" className="btn" onClick={() => { setDone(false); generate(); }}><Icon name="refresh" size={15} />Study again</button>
           </div>
 
